@@ -1,0 +1,359 @@
+/* AmeSSIST 画面の見た目。色・大きさは先頭の変数にまとめてある（細かい調整はここだけ触ればよい）。 */
+:root{
+  --bg:#ffffff; --side:#f1e2f8; --card:#f5ebfa; --paper:#fff;
+  --ink:#111; --muted:#666; --line:#2a2630; --hair:#dbd1e0;
+  --accent:#9a1bda; --accent-ink:#fff; --strong:#9a1bda;
+  --pos:#3d9a2f; --neg:#e0161d; --sat:#1a6fc4; --sun:#e0161d; --lime:#7fe800;
+  --radius:22px; --round-box:22px; --round-tile:14px; --round-ui:12px;
+  /* 入力部品の高さ: --ctl-h=入力欄・選択・数字・ボタン（普通の大きさ）、--ctl-sm=月カレンダーの操作部分 */
+  --ctl-h:34px; --ctl-sm:28px;
+  /* 区切りは線ではなく面の色で付ける。--tile=表の行・カレンダーの日・タイムラインの地、--field=入力欄の地、--btn=ボタンの地 */
+  --tile:var(--card); --field:var(--paper); --btn:color-mix(in srgb,var(--accent) 22%,var(--paper));
+  /* 動き: --press=押した時の縮み、--hv=ホバーで色が変わる量、--dur=動きの時間 */
+  --press:.97; --hv:8%; --dur:.12s;
+  /* ホームの縦の大きさ: --wk-min=一週間の帯の最低の高さ（今日のタイムラインの高さは app.js の HT_ROW・HT_MIN_ROWS） */
+  --wk-min:200px;
+  /* 予定ページの縦の大きさ: --cal-cell=月カレンダーの1日の高さ、--vt-h=縦タイムラインの枠の高さ（1時間の高さは app.js の VT_HOUR） */
+  --cal-cell:130px; --vt-h:680px;
+  /* 月カレンダーの日付（数字）の、マスの右の端からの間隔。0にすると右端にぴったり付く */
+  --dn-gap:3px;
+  /* サイドバーの幅: --side-w=閉じているとき（アイコンだけ）、--side-open=広がったとき */
+  --side-w:72px; --side-open:216px;
+  /* 余白（2026-11-11）: --gap=カードや列の間、--sec=見出しの上の間隔（セクションの間）、--title-gap=ページタイトルと本文の間、
+     --edge-x/--edge-top=画面の左右・上の端から本文までの余白、--split-gap=左右2列（予定・タスク）の間 */
+  --gap:18px; --sec:28px; --title-gap:24px; --edge-x:40px; --edge-top:30px; --split-gap:36px;
+  /* ロゴの色（index.html の <symbol id="logo"> が使う）。ライトは元のアイコンの色、ダークは背景なしで明るくした色 */
+  --gl1:#8B1AD1; --gl2:#B053EA; --gr1:#EBCFFC; --gr2:#B865EC; --gc1:#C077EE; --gc2:#971CE3; --gd1:#7916B6; --gd2:#5A1188;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    /* 背景は完全な黒をやめ、ニュートラルな濃いグレー（2026-11-11）。背景 < サイドバー < カード、入力欄（--paper）はカードより暗い、の重なりは保つ */
+    --bg:#1c1c20; --side:#261d2c; --card:#2b2132; --paper:#18131b;
+    --ink:#eee; --muted:#a196a6; --line:#65556d; --hair:#46394e;
+    --accent:#ac37e6; --accent-ink:#fff; --strong:#ac37e6;
+    --pos:#6fcf5f; --neg:#ff6b6b; --sat:#6ab0ff; --sun:#ff7b7b; --lime:#b4ff1f;
+    --gl1:#A64AE8; --gl2:#C37DF0; --gr1:#F0DAFD; --gr2:#C88EF2; --gc1:#D29DF3; --gc2:#B056F0; --gd1:#A24BDB; --gd2:#7E2CC0;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Hiragino Sans","Noto Sans CJK JP",sans-serif}
+#app{display:flex;height:100vh}
+/* サイドバー: 幅 --side-w（アイコンだけ）で常駐。マウスを乗せると、本文に重なって --side-open まで広がる（本文の幅は動かない）。
+   開くときだけ0.15秒遅らせる（通り道で開かないように）。キーボードで選んだときも開く（マウスのクリックでは開いたままにならない） */
+#side{position:fixed;left:0;top:0;bottom:0;width:var(--side-w);background:var(--side);padding:22px 14px;overflow:hidden;z-index:10;
+  transition:width .18s ease,box-shadow .18s ease}
+#side:hover,#side:has(:focus-visible){width:var(--side-open);transition-delay:.15s;box-shadow:6px 0 24px rgba(0,0,0,.18)}
+#main{flex:1;min-width:0;overflow:auto;padding:var(--edge-top) var(--edge-x) 120px;margin-left:var(--side-w)}
+.ni{display:flex;align-items:center;height:42px;margin:3px 0;border-radius:14px;color:var(--ink);text-decoration:none;white-space:nowrap;
+  transition:background-color var(--dur),transform var(--dur)}
+.ni .ico{flex:none;width:44px;height:42px;display:grid;place-items:center;position:relative}
+.ni .lbl{opacity:0;transition:opacity .1s}
+#side:hover .lbl,#side:has(:focus-visible) .lbl{opacity:1;transition:opacity .15s .2s}
+.ni.on{background:var(--accent);color:var(--accent-ink)}
+.ni.home.on{background:color-mix(in srgb,var(--accent) 16%,var(--side));color:var(--ink)}   /* ホーム（ロゴ）は、ロゴが埋もれないよう薄い面 */
+.ni .ic{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ni .logo{display:block}
+.ni .bd{position:absolute;top:3px;right:2px;background:var(--lime);color:#222;border-radius:9px;min-width:17px;height:17px;padding:0 4px;font-size:11px;line-height:17px;text-align:center;font-weight:600}
+.ni .brand{font-size:20px;font-weight:700;letter-spacing:.01em}
+.sidesep{height:10px}
+.synced{margin:18px 4px 0;font-size:12px;color:var(--muted);white-space:nowrap}
+
+a{color:var(--strong)}
+h1{font-size:26px;margin:2px 0 10px;font-weight:700}
+h2{font-size:16px;margin:var(--sec) 0 10px;font-weight:600}
+/* ページタイトル: ページ名の下に、短い紫の丸い下線（A案）。収支の統計は「収支 › 統計」 */
+h1.pt{font-size:28px;line-height:1.3;margin:0 0 var(--title-gap)}
+h1.pt::after{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--accent);margin-top:8px}
+h1.pt .crumb{color:var(--muted);text-decoration:none}
+h1.pt .crumb:hover{color:var(--strong)}
+h1.pt .sep2{color:var(--muted);font-weight:400;margin:0 10px}
+/* 予定・タスクの「2026年11月」、収支の統計の「2026年」: ページタイトルの下の小さな見出し */
+.calttl{font-size:19px;font-weight:700;margin:0}
+.muted{color:var(--muted);font-size:13px}
+.card{background:var(--card);border-radius:var(--radius);padding:14px 20px 16px;margin-bottom:var(--gap)}
+.card h2:first-child{margin-top:2px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap);margin-bottom:var(--gap)}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--gap);margin-bottom:var(--gap)}
+.grid2>.card,.grid3>.card{margin-bottom:0}
+@media (max-width:1100px){.grid3{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+
+.btn{border:0;background:var(--btn);color:var(--ink);border-radius:var(--round-ui);padding:5px 13px;cursor:pointer;font:inherit;font-size:13px;transition:background-color var(--dur),transform var(--dur),opacity var(--dur)}
+.btn.sm{padding:1px 9px;font-size:12px}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.warn{color:var(--neg)}
+.btn.on{background:var(--ink);color:var(--paper)}
+.btn.busy{opacity:.5;pointer-events:none}
+.btn.kbd,.btn.pri.kbd,.btn.on.kbd{transform:scale(var(--press))!important}   /* ⌘+Enter で押したとき */
+
+/* 動き。ホバーはMacのみ。押した時の縮みは、iPhoneでも効く。
+   主ボタン(.pri)・選択中(.on)・「＋」は、色だけだと分かりにくいため、ホバーで少し大きくもする。 */
+.tbl td,.cal .cell{transition:background-color var(--dur)}
+@media (hover:hover){
+  .btn:hover{background:color-mix(in srgb,var(--ink) var(--hv),var(--btn))}
+  .btn.pri:hover{background:color-mix(in srgb,#000 14%,var(--accent));transform:scale(1.04)}
+  .btn.on:hover{background:color-mix(in srgb,var(--paper) 18%,var(--ink));transform:scale(1.04)}
+  #fab:hover{transform:scale(1.07);box-shadow:0 6px 18px rgba(0,0,0,.38)}
+  .ni:not(.on):hover{background:color-mix(in srgb,var(--accent) 14%,var(--side))}
+  .tbl tr:hover td{background:color-mix(in srgb,var(--accent) 12%,var(--tile))}
+  .cal .cell:not(.out):not(.sel):hover{background:color-mix(in srgb,var(--accent) 12%,var(--tile))}
+}
+.btn:active,.btn.pri:active,.btn.on:active,#fab:active,.ni:active{transform:scale(var(--press))}
+.btn:focus-visible,.ni:focus-visible,#fab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ni:focus-visible{outline-offset:-2px}
+input,select,textarea{background:var(--field);color:var(--ink);border:0;border-radius:var(--round-ui);padding:6px 10px;font:inherit;max-width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:0}
+input[type=checkbox]{padding:0;background:none;accent-color:var(--accent)}
+textarea{width:100%;resize:vertical}
+/* 入力欄・選択・数字・日付・ボタンの縦幅をそろえる（:where は、個別の指定を邪魔しないため） */
+:where(input:not([type=checkbox]):not([type=hidden]),select){height:var(--ctl-h);padding-top:0;padding-bottom:0}
+.btn:where(:not(.sm)){height:var(--ctl-h)}
+label{display:inline-block;margin:3px 10px 3px 0;font-size:12px;color:var(--muted)}
+label>input,label>select,label>textarea{display:block;margin-top:2px;color:var(--ink)}
+details{margin:12px 0}
+details + .card{margin-top:var(--gap)}
+details>.card{margin-top:10px}
+summary{cursor:pointer;font-weight:600}
+
+/* 表 */
+.tbl{width:100%;border-collapse:separate;border-spacing:0 6px}
+.tbl th,.tbl td{padding:8px 10px;text-align:left;vertical-align:middle}
+.tbl th{font-weight:600;font-size:12px;color:var(--muted);padding-top:0;padding-bottom:0}
+.tbl td{background:var(--tile)}
+.tbl td:first-child,.tbl th:first-child{padding-left:16px}
+.tbl td:last-child,.tbl th:last-child{padding-right:16px}
+.tbl td:first-child{border-radius:var(--round-tile) 0 0 var(--round-tile)}
+.tbl td:last-child{border-radius:0 var(--round-tile) var(--round-tile) 0}
+.tbl td:only-child{border-radius:var(--round-tile)}
+.tbl tr.ytot td{font-weight:700;background:color-mix(in srgb,var(--accent) 14%,var(--tile))}   /* 統計の「年の総計」の行 */
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tr.done td.t{text-decoration:line-through;color:var(--muted)}
+.tbl td.act{white-space:nowrap;text-align:right}
+.st{font-size:12px;border-radius:10px;padding:1px 9px;background:var(--hair);color:var(--ink)}
+.st.done{background:var(--accent);color:var(--accent-ink)}
+/* ToDoの状態: 丸印の形で進み具合を表す（○未着手 → ◐進行中 → ●完了）。色は進行中の紫だけ */
+.sd{display:inline-flex;align-items:center;gap:7px;font-size:13px;white-space:nowrap}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;flex:none;box-sizing:border-box}
+.sd.open .dot{border:2px solid var(--muted)}
+.sd.doing .dot,.dot.dg{border:2px solid var(--accent);background:linear-gradient(90deg,var(--accent) 50%,transparent 50%)}
+.sd.doing{font-weight:600}
+.sd.done .dot{background:color-mix(in srgb,var(--muted) 45%,transparent)}
+.sd.done,.sd.cancelled{color:var(--muted)}
+.sd.cancelled .dot{border:2px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.sd.cancelled{text-decoration:line-through}
+.od{color:var(--neg);font-weight:600}
+.pos{color:var(--pos)}.neg{color:var(--neg)}
+
+/* 絞り込み */
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0 10px}
+.filters + .tbl{margin-top:14px}
+.filters b{font-size:13px;margin-right:2px}
+/* 絞り込みの行（.fx）: 見出しの幅とボタンの幅をそろえ、行が違っても、ボタンが縦に揃うようにする。
+   見出しの幅は --fx-label、ボタンの幅は --fx-btn（ToDo・タスクで共通）。 */
+.filters.fx{--fx-label:58px;--fx-btn:78px}
+.filters.fx b{flex:none;width:var(--fx-label);margin-right:0}
+.filters.fx .btn{flex:none;width:var(--fx-btn);padding-left:0;padding-right:0;text-align:center;white-space:nowrap}
+
+/* カレンダー */
+/* トグルスイッチ: 入=紫、切=グレー */
+.tgl{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--ink);font:inherit;font-size:13px;cursor:pointer;padding:2px 0}
+.tgl .knob{position:relative;width:38px;height:22px;border-radius:11px;background:#9a9a9f;transition:background-color var(--dur);flex:none}
+.tgl .knob::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform var(--dur)}
+.tgl.on .knob{background:var(--strong)}
+.tgl.on .knob::after{transform:translateX(16px)}
+.cal-head{display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px}
+.cal-top{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:4px 14px;margin-bottom:10px}
+.cal-nav{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:6px 8px;margin-bottom:8px}
+.cal-nav input,.cal-nav select{background:var(--card);padding-left:8px;padding-right:8px}   /* ライトは白地に白で見えなくなるため、薄い紫の面にする */
+.cal-nav input{width:84px;text-align:center}
+/* 予定・タスクの月選択: 少し小さく、◀▶は紫の丸い三角。「今月」は2つの三角の間 */
+.cal-nav.mo{font-size:13px}
+.cal-nav.mo input,.cal-nav.mo select{height:var(--ctl-sm);font-size:13px}
+.cal-step{display:inline-flex;align-items:center;gap:4px}
+.cal-step .yr{padding:0 10px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.cal-step .btn.sm{height:var(--ctl-sm);padding:0 12px}
+.cal-nav button[data-cal],.cal-nav button[data-year]{display:inline-grid;place-items:center;width:var(--ctl-sm);height:var(--ctl-sm);padding:0;border:0;border-radius:var(--round-ui);
+  background:color-mix(in srgb,var(--accent) 12%,var(--paper));color:var(--accent);cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
+.cal-nav button[data-cal]:active,.cal-nav button[data-year]:active{transform:scale(var(--press))}
+@media (hover:hover){.cal-nav button[data-cal]:hover,.cal-nav button[data-year]:hover{background:color-mix(in srgb,var(--accent) 24%,var(--paper))}}
+.cal-nav button[data-cal]:focus-visible,.cal-nav button[data-year]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal .h{padding:0 8px 2px;font-size:12px;font-weight:700;color:var(--muted)}
+.cal .h.sat,.cal .dn.sat{color:var(--sat)}.cal .h.sun,.cal .dn.sun{color:var(--sun)}
+/* 土曜=青、日曜・祝日=赤。カレンダー以外（ホームの曜日、一週間の帯、予定の日付見出し）でも共通 */
+.sat{color:var(--sat)}.sun{color:var(--sun)}
+.cal .cell{min-height:96px;background:var(--tile);border-radius:var(--round-tile);padding:5px 6px;cursor:pointer;overflow:hidden}
+.cal.big .cell{min-height:var(--cal-cell)}   /* 予定・タスクのカレンダーは、縦に広げる */
+.cal .cell.out{background:none;cursor:default}
+.cal .cell.sel{background:color-mix(in srgb,var(--accent) 20%,var(--tile))}
+.dn{display:inline-grid;place-items:center;min-width:24px;height:24px;border-radius:12px;font-size:15px}
+.dn.today{background:var(--strong);color:#fff!important}
+/* 月カレンダーのマスの中の日付は、左上（数字を行として独立させ、チップは次の行から） */
+.cal .cell>.dn{display:grid;width:max-content;margin:0 auto 0 var(--dn-gap)}
+.chip{background:var(--accent);color:var(--accent-ink);border-radius:6px;font-size:11px;line-height:1.5;padding:0 6px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+.chip.done{opacity:.5}
+.chip.more{background:none;color:var(--muted);cursor:default}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:var(--split-gap);align-items:start}
+@media (max-width:1100px){.split{grid-template-columns:1fr}}
+
+/* 縦のタイムライン（1日）。高さは --vt-h、1時間の高さは app.js の VT_HOUR */
+.vt-wrap{height:var(--vt-h);overflow:auto;background:var(--tile);border-radius:var(--round-box);padding:6px 0}
+.vt{position:relative}
+.vt .hr{position:absolute;left:0;right:0;font-size:12px;line-height:18px;color:var(--muted);padding-left:14px;transform:translateY(-9px)}
+.vt .hr::after{content:"";position:absolute;left:50px;top:9px;width:8px;border-top:1px solid var(--muted);opacity:.5}
+.vt .lane{position:absolute;left:58px;right:8px;top:0;bottom:0;z-index:1}   /* 予定カードは、締切の線より手前 */
+.vt .ev{position:absolute;background:var(--accent);color:var(--accent-ink);border-radius:10px;font-size:12px;padding:2px 6px;overflow:hidden;border:1px solid var(--paper);cursor:pointer}
+.vt .ev.done{opacity:.5}
+/* 締切（〆）: 線は予定カードの背面（z-index 0）、文字札は右の端に固定して手前（z-index 2） */
+.vt .dueline{position:absolute;left:58px;right:8px;height:0;border-top:3px solid var(--accent);z-index:0;pointer-events:none}
+.vt .duelab{position:absolute;right:8px;max-width:46%;transform:translateY(-100%);z-index:2;background:var(--paper);color:var(--ink);
+  border:1px solid var(--accent);border-radius:8px 8px 0 8px;font-size:11px;line-height:1.5;padding:0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.vt .dueline.done,.vt .duelab.done{opacity:.45}
+.vt .now,.ht .now{position:absolute;border-color:var(--lime);border-style:solid;border-width:0;pointer-events:none}
+.vt .now{left:0;right:0;border-top-width:2px;z-index:3}
+.daylist{margin-top:14px}
+.dayhead{margin-top:0}
+.daylist .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
+.daylist .row.done .t{text-decoration:line-through;color:var(--muted)}
+
+/* 横のタイムライン（今日）。高さは app.js の HT_ROW・HT_MIN_ROWS で決まる */
+.ht{position:relative;background:var(--tile);border-radius:var(--round-box);overflow:hidden}
+.ht .tick{position:absolute;top:0;bottom:0;font-size:12px;color:var(--muted);padding:3px 0 0 6px}
+.ht .tick::before{content:"";position:absolute;left:0;top:7px;height:10px;border-left:1px solid var(--muted);opacity:.4}
+.ht .tick:first-child{padding-left:16px}
+.ht .tick:first-child::before{display:none}
+.ht .bar{position:absolute;height:32px;background:var(--accent);color:var(--accent-ink);border-radius:10px;font-size:13px;line-height:32px;text-align:center;overflow:hidden;white-space:nowrap;padding:0 6px;cursor:pointer}
+.ht .bar.done{opacity:.5}
+.ht .dl{position:absolute;top:0;bottom:0;border-left:3px solid var(--accent)}
+.ht .dl span{position:absolute;bottom:4px;left:4px;font-size:11px;white-space:nowrap;background:var(--tile);padding:0 3px;border-radius:4px}
+.ht .now{top:0;bottom:0;border-left-width:2px}
+
+/* ホーム（1列。下段に、Daily/Weekly/Monthly、残高とToDoを並べる） */
+.home{min-width:0}
+/* ホームの下段（Daily/Weekly/Monthly）の上下は、他より広く（--sec） */
+.home .grid3{margin:var(--sec) 0}
+.date span{font-weight:400;margin-left:10px}
+.ht + .muted{margin-top:8px}
+.wkstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.wk{min-height:var(--wk-min);background:var(--tile);border-radius:var(--round-tile);padding:6px 6px 4px;min-width:0}
+.wk.today{background:color-mix(in srgb,var(--accent) 20%,var(--tile))}
+.wk .wh{font-size:15px;padding-bottom:2px;margin-bottom:3px}
+.wk .wh .dn{margin-right:3px}
+.wk .chip{font-size:12px;line-height:1.6;margin-top:3px}
+.kv{display:flex;justify-content:space-between;padding:1px 0;font-variant-numeric:tabular-nums}
+.kv.total{border-top:1px solid var(--hair);margin-top:4px;padding-top:4px;font-weight:600}
+.mini{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:14px}
+.mini .mt{display:inline-flex;align-items:center;gap:7px}
+.mini .m{color:var(--muted);font-size:12px;white-space:nowrap}
+
+/* ホームのカード・帯を押すと、対応するページへ移動する（app.js の data-go）。ホバーで、色が少し濃くなり、カーソルが指になる。
+   Mac専用のホバー。カードの中のボタン（Done など）は、移動しない。 */
+.card[data-go],.jump{cursor:pointer}
+.card[data-go] button,.card[data-go] a{cursor:pointer}
+.card[data-go],.ht,.wk{transition:background-color var(--dur)}
+@media (hover:hover){
+  .card[data-go]:hover{background:color-mix(in srgb,var(--accent) 9%,var(--card))}
+  .jump:hover .ht,.jump:hover .wk{background:color-mix(in srgb,var(--accent) 9%,var(--tile))}
+  .jump:hover .wk.today{background:color-mix(in srgb,var(--accent) 28%,var(--tile))}
+}
+
+/* 定期 */
+.rec-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
+.rec-item.ok .rt{color:var(--strong);font-weight:600}
+.rec-item .rm{display:block;font-size:12px;color:var(--muted)}
+.card .hd{display:flex;justify-content:space-between;align-items:baseline}
+
+/* 定期の過去の記録（期間ごとのカード） */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:10px 0 12px}
+.pcard{background:var(--card);border-radius:var(--round-tile);padding:8px 14px 10px}
+.pcard .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+.pcard .hd b{font-size:14px}
+.prow{display:flex;justify-content:space-between;gap:8px;padding:2px 0;font-variant-numeric:tabular-nums}
+.prow.ok{color:var(--strong);font-weight:600}
+.prow.ng{color:var(--muted)}
+
+/* 定期の過去の記録（1枚のカード＋タブ） */
+.pastcard{margin-top:var(--sec)}   /* 管理のカードとの間を、少し広げる（18px → 28px） */
+.pastcard .filters{margin:8px 0 6px}
+.ptabs .pn{margin-left:6px;opacity:.6;font-variant-numeric:tabular-nums}
+.pastcard .pcard{background:var(--field)}   /* カードの中なので、カードより一段暗い／白い面 */
+.pastcard .pgrid{margin:12px 0 4px}
+.pmore{display:flex;justify-content:center;margin-top:8px}
+.plog .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0}
+
+/* 収支 */
+.big{font-size:34px;font-weight:600;line-height:1.2}
+/* 支出と収入は、カードを左右に二等分した、それぞれの中央に置く（左に詰めない） */
+.sumrow{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;text-align:center}
+/* 収支の右上カード: 支出・収入を少し下げ、「統計ページへ」はカードの下端に寄せる。下げる量は --sum-gap */
+.card.ledsum{display:flex;flex-direction:column;--sum-gap:36px}
+.ledsum .sumrow{margin-top:var(--sum-gap)}
+.ledsum .lnk{margin-top:auto;padding-top:14px;text-align:right}
+.inrow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:2px;background:var(--card);border-radius:var(--radius);padding:12px 20px;margin-bottom:var(--gap)}
+.inrow label{margin-right:8px}
+.inrow .btn{margin-bottom:3px;margin-left:auto}
+
+/* 要確認 */
+.inbox-log{margin-top:var(--sec)}
+.inbox-log .tbl td.t{max-width:320px;overflow:hidden;text-overflow:ellipsis}
+/* 要確認のカード: 上=元の入力・理由、下=入力欄。囲む面は作らず、入力欄そのものを白（ダークは黒に近い色。--field）にする */
+.rv-text{font-size:18px;font-weight:600;line-height:1.4}
+.rv-meta{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12px;color:var(--muted);margin:2px 0 10px}
+.rv-why{color:var(--ink)}
+.rv-form{padding:0}
+.rv-row{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:flex-end}
+.rv-row+.rv-grp,.rv-grp:not([hidden]){margin-top:8px}
+.rv-row label,.rv-grp label{margin:0}
+.rv-wide{flex:1 1 260px}
+.rv-wide input{width:100%}
+.rv-act{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:12px}
+.rv-act .kbdhint{margin-right:auto}
+.fgrid{display:flex;flex-wrap:wrap}
+.fgrid label{margin-right:8px}
+
+/* モーダル・トースト・追加ボタン */
+#fab{position:fixed;right:40px;bottom:36px;width:68px;height:68px;border-radius:50%;border:0;background:var(--strong);color:#fff;font-size:38px;line-height:1;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.3);transition:transform var(--dur),box-shadow var(--dur)}
+/* 「＋」にマウスを乗せると、すぐ左に出る追加ボタン（予定=くり返し予定、定期=定期を追加）。
+   ボタンの右に透明な橋（::after）を付け、「＋」から移るときに消えないようにする。Mac専用の挙動（ホバー）。 */
+#fabmenu{position:fixed;right:116px;bottom:50px;z-index:5;opacity:0;visibility:hidden;transform:translateX(6px);transition:opacity .15s,transform .15s,visibility .15s}
+#fabmenu .btn{position:relative;height:40px;padding:0 18px;font-size:14px;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+#fabmenu .btn::after{content:"";position:absolute;top:0;bottom:0;left:100%;width:8px}
+#fab:hover+#fabmenu,#fab:focus-visible+#fabmenu,#fabmenu:hover,#fabmenu:focus-within{opacity:1;visibility:visible;transform:none}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.4);overflow:auto;z-index:20}
+#modal[hidden],#toast[hidden],#fab[hidden]{display:none}
+.dlg{background:var(--card);max-width:680px;margin:7vh auto;border-radius:var(--round-box);padding:18px 22px}   /* 要確認のカードと同じ: 面はカード色、入力欄そのものが白（ダークは黒に近い色） */
+.dlg .pvcard{background:var(--field)}
+.dlg h2{margin-top:0}
+.dlg .row{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+#toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);background:var(--lime);color:#222;padding:8px 18px;border-radius:20px;z-index:30;max-width:80vw}
+/* 定期の追加フォーム（モーダル） */
+[hidden]{display:none!important}
+.pagehd{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 var(--title-gap)}
+.pagehd .btn{margin-top:2px}
+.pagehd h1{margin:0}
+.wd{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px}
+.wd button{width:38px;height:var(--ctl-h);border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--ink);font:inherit;font-size:14px;cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
+.wd button.on{background:var(--accent);color:var(--accent-ink)}
+.wd button:active{transform:scale(var(--press))}
+.seg{width:auto;padding-left:12px;padding-right:12px}
+.pvcard{background:var(--card);border-radius:var(--round-tile);padding:8px 14px 10px;margin:10px 0 0}
+.pvcard .t{font-size:12px;color:var(--muted);margin-bottom:2px}
+.hint{min-height:20px;font-size:12px;color:var(--neg);margin:4px 2px 0}
+.btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.grow input{width:100%}
+/* くり返し予定: 「祝日は飛ばす」のチェック、編集画面の「まとめて取消」の行 */
+.ckrow{display:inline-flex;align-items:center;gap:6px;height:var(--ctl-h);margin:0;font-size:13px;color:var(--ink)}
+.ckrow>input{display:inline-block;margin:0;width:16px;height:16px}
+.ser-note{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;padding:6px 8px 6px 14px;background:var(--field);border-radius:var(--round-ui)}
+/* 出現（モーダルとトースト） */
+@keyframes bgIn{from{opacity:0}to{opacity:1}}
+@keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+#modal:not([hidden]){animation:bgIn .16s ease-out}
+#modal:not([hidden]) .dlg{animation:dlgIn .2s ease-out}
+#toast:not([hidden]){animation:toastIn .18s ease-out}
+/* OSの「視差効果を減らす」設定では、動きを切る */
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+  .btn:active,.btn.pri:active,.btn.on:active,#fab:active,.ni:active{transform:none}
+}

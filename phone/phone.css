@@ -1,0 +1,94 @@
+/* AmeSSIST iPhone版の見た目。色・丸み・動きの変数は、Mac版と同じ ../style.css（先に読み込む）。
+   ここには、iPhone用の部品（ヘッダー、下タブ、行カード、カレンダーの引き出し）だけを書く。 */
+html,body{overscroll-behavior:none}
+body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-size:16px}
+#ph{display:flex;flex-direction:column;height:100vh;height:100dvh;background:var(--bg)}
+
+/* ヘッダー: 日付、右にボタン。その下に最終更新 */
+#top{flex:none;padding:10px 16px 6px;padding-top:max(10px,env(safe-area-inset-top))}
+.th-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.th-date{font-size:26px;font-weight:700;line-height:1.2}
+.th-date span{font-size:15px;font-weight:600;margin-left:8px}
+.th-btns{display:flex;gap:8px}
+.th-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.th-sub.stale{color:var(--neg);font-weight:600}
+.ibtn{display:inline-grid;place-items:center;width:42px;height:42px;padding:0;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--accent);cursor:pointer;
+  transition:background-color var(--dur),transform var(--dur),opacity var(--dur)}
+.ibtn:active{transform:scale(var(--press))}
+.ibtn:disabled{opacity:.3;pointer-events:none}
+.ibtn.sm{width:36px;height:36px}
+.pic{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tri{display:block}
+
+/* 本文 */
+#view{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 24px}
+#view h2{font-size:16px;margin:20px 0 8px}
+.foot{margin:18px 0 0;text-align:center;font-size:11px;color:var(--muted)}
+.card{margin-bottom:12px}
+#view .card h2{margin:2px 0 8px}
+
+/* 下タブ */
+#tabs{flex:none;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:var(--side);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+.tb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;border:0;border-radius:14px;background:none;color:var(--ink);font:inherit;font-size:11px;
+  cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
+.tb .pic{width:22px;height:22px}
+.tb.on{background:var(--accent);color:var(--accent-ink)}
+.tb:active{transform:scale(var(--press))}
+
+/* 行カード（タスク・ToDo・収支の記録） */
+.rc{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border-radius:var(--round-tile);padding:12px 14px;margin-bottom:8px}
+.rc .rl{min-width:0;flex:1}
+.rc .r1{font-weight:600;overflow-wrap:anywhere}
+.rc .r2{font-size:12px;color:var(--muted);margin-top:1px}
+.rc .rr{flex:none;text-align:right;font-size:13px;font-variant-numeric:tabular-nums}
+.rc.od .r1{color:var(--neg)}
+.rc .sd{display:flex;align-items:flex-start;gap:9px;font-size:16px;white-space:normal}
+.rc .sd .dot{margin-top:6px}
+.rc .sd.doing{font-weight:600}
+.note{font-size:12px;color:var(--muted);margin:4px 2px 10px}
+.empty{padding:20px}
+.empty p{margin:8px 0;line-height:1.7}
+.empty code{background:var(--field);border-radius:6px;padding:1px 6px;font-size:13px}
+.btn.lg{height:46px;padding:0 22px;font-size:16px;margin-top:8px}
+.fbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:14px;font-weight:600}
+
+/* 予定: 日の見出し、時刻のない項目、縦タイムライン */
+.daybar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 10px}
+.daybar .dt{font-size:20px;font-weight:700;flex:1;text-align:center}
+.daybar .dt span{font-size:14px;margin-left:6px}
+.daybar .btn.sm{height:30px}
+.untimed{margin:0 0 8px}
+.untimed .chip{display:inline-block;max-width:100%;font-size:13px;line-height:1.7;padding:2px 10px;margin:0 6px 6px 0;border-radius:8px;cursor:default}
+#view .vt-wrap{height:56vh;height:56dvh;min-height:300px}
+
+/* 定期・収支 */
+.card .rec-item .rt{font-size:16px}
+.ph-big{font-size:26px;font-weight:700;line-height:1.2}
+.sumrow{margin-top:12px}
+.sumrow .big{font-size:24px}
+
+/* カレンダーの引き出し（左からスライドイン） */
+#drawer{position:fixed;inset:0;z-index:15;pointer-events:none;visibility:hidden;transition:visibility 0s .24s}
+#drawer.open{pointer-events:auto;visibility:visible;transition-delay:0s}
+.dr-bg{position:absolute;inset:0;background:rgba(0,0,0,.4);opacity:0;transition:opacity .22s}
+#drawer.open .dr-bg{opacity:1}
+.dr-panel{position:absolute;left:0;top:0;bottom:0;width:min(94vw,430px);background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:max(14px,env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom));transform:translateX(-104%);transition:transform .24s ease;box-shadow:6px 0 24px rgba(0,0,0,.25)}
+#drawer.open .dr-panel{transform:none}
+.dr-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.dr-head .calttl{font-size:20px}
+.dr-nav{display:flex;align-items:center;gap:6px}
+.dr-nav .btn.sm{height:36px;padding:0 14px;font-size:13px}
+.dr-sw{margin:2px 0 10px}
+.dr-panel .cal{gap:4px}
+.dr-panel .cal .cell{min-height:60px;padding:4px 2px;text-align:center;cursor:pointer}
+.dr-panel .cal .cell>.dn{margin:0 auto;font-size:15px}
+.mk{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:3px;margin-top:4px;min-height:8px}
+.mk i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.mk i.t{background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.mk b{font-size:10px;font-weight:600;color:var(--muted);line-height:1}
+.dr-legend{margin-top:10px;font-size:12px;color:var(--muted)}
+.dr-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin:0 4px 0 8px;vertical-align:baseline}
+.dr-legend i.t{background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)}
+
+#toast{bottom:calc(84px + env(safe-area-inset-bottom))}
