@@ -23,6 +23,10 @@
 <body>
 <div id="ph"><header id="top"></header><main id="view"></main><nav id="tabs"></nav></div>
 <div id="drawer"><div class="dr-bg" data-close-cal="1"></div><aside class="dr-panel" id="drp"></aside></div>
+<!-- 「＋」（入力を追加）。id は pfab（Mac版の style.css の #fab と、見た目が混ざらないように） -->
+<button id="pfab" class="pfab" data-add="1" aria-label="入力を追加"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg></button>
+<!-- 入力を追加・送信待ちの一覧（シート） -->
+<div id="sheet" hidden><div class="sh-bg" data-sheet-bg="1"></div><div class="sh-card" id="shc" role="dialog" aria-modal="true"></div></div>
 <div id="toast" hidden></div>
 <!-- accept は付けない（付けると、iPhoneの選択画面で、.json が選べないことがあるため） -->
 <input type="file" id="pick" hidden>

@@ -2,7 +2,7 @@
    方式: 保存した版を、通信なしで、いつも先に使う（ギガを使わない。サイトが止まっても開ける）。
    更新: 画面（phone.js）が、1日1回まで、この sw.js だけを確かめる。V を変えると新しい版と見なし、全ファイルを取り直す。
    画面のコードを直したときは、V（と phone.js の APP_VER）を必ず上げる。 */
-const V = 'amessist-phone-v2';
+const V = 'amessist-phone-v3';
 const FILES = ['./', 'index.html', 'phone.css', 'phone.js', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', '../style.css'];
 
 self.addEventListener('install', e => {

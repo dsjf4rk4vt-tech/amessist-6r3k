@@ -1,10 +1,12 @@
 'use strict';
-/* AmeSSIST iPhone版（段階1: 閲覧専用）。
+/* AmeSSIST iPhone版（段階1: 閲覧、段階2: 「＋」で入力して、まとめてMacへ送る）。
    データは、Macの snapshot.py が書き出したJSON（api.build_state(readonly=True)）を1つ読み込み、端末内（IndexedDB）に保存する。
    「今日」と現在時刻は、端末の時計で決める（スナップショットの today は使わない）。
-   取消・編集・Done・完了は作らない（Macで行う）。入力は、今のショートカットのまま。 */
+   取消・編集・Done・完了は作らない（Macで行う）。
+   入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
+   共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階1 v2';
+const APP_VER = '段階2 v1';
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -26,7 +28,7 @@ const HOR = { '短期': 0, '中期': 1, '長期': 2 };
 const VT_HOUR = 60;   // 縦タイムラインの1時間の高さ（px）
 
 let S = null;   // 読み込んだスナップショット
-const ui = { page: 'events', selDay: null, calMonth: null, taskDay: null, evTasks: true, cal: false };
+const ui = { page: 'events', selDay: null, calMonth: null, taskDay: null, evTasks: true, cal: false, sheet: null, kind: 'おまかせ' };
 try { if (localStorage.getItem('evTasks') === '0') ui.evTasks = false; } catch (e) { /* 覚えられなくても動く */ }
 
 /* ---------- 小さな道具 ---------- */
@@ -63,30 +65,34 @@ function toast(msg) {
   t.textContent = msg; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => { t.hidden = true; }, 3500);
 }
 
-/* ---------- 保存（IndexedDB。だめなら localStorage） ---------- */
+/* ---------- 保存（IndexedDB。だめなら localStorage） ----------
+   1つの入れ物（kv）に、キーで分けて入れる: snapshot=Macのデータ、outbox=送信待ちの入力、lastsent=前回送った入力。
+   スナップショットを読み込み直しても、送信待ちには触らない。 */
 const DBN = 'amessist-phone', STORE = 'kv', KEY = 'snapshot';
 const idb = () => new Promise((res, rej) => {
   const r = indexedDB.open(DBN, 1);
   r.onupgradeneeded = () => r.result.createObjectStore(STORE);
   r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
 });
-async function saveSnap(j) {
+async function kvPut(key, val) {
   try {
     const d = await idb();
-    await new Promise((res, rej) => { const tx = d.transaction(STORE, 'readwrite'); tx.objectStore(STORE).put(j, KEY); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+    await new Promise((res, rej) => { const tx = d.transaction(STORE, 'readwrite'); tx.objectStore(STORE).put(val, key); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     d.close();
-  } catch (e) { try { localStorage.setItem(KEY, JSON.stringify(j)); } catch (e2) { return false; } }
+  } catch (e) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e2) { return false; } }
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* 任意 */ }
   return true;
 }
-async function loadSnap() {
+async function kvGet(key) {
   try {
     const d = await idb();
-    const v = await new Promise((res, rej) => { const q = d.transaction(STORE).objectStore(STORE).get(KEY); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
-    d.close(); if (v) return v;
+    const v = await new Promise((res, rej) => { const q = d.transaction(STORE).objectStore(STORE).get(key); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+    d.close(); if (v !== undefined) return v;
   } catch (e) { /* 次へ */ }
-  try { const s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : null; } catch (e) { return null; }
 }
+const saveSnap = j => kvPut(KEY, j);
+const loadSnap = () => kvGet(KEY);
 
 /* ---------- スナップショットの読み込み ---------- */
 function validate(j) {
@@ -109,6 +115,129 @@ function ageMin() { const t = Date.parse(S.generated_at); return isNaN(t) ? null
 function ageText() {
   const m = ageMin(); if (m == null) return '';
   return m < 60 ? `${m}分前` : m < 1440 ? `${Math.floor(m / 60)}時間前` : `${Math.floor(m / 1440)}日前`;
+}
+
+/* ---------- 入力（段階2）: 送信待ち、ファイルの組み立て、共有 ---------- */
+const KINDS = ['おまかせ', '予定', 'タスク', 'ToDo', '定期'];   // 「完了」は廃止（Macの画面のボタンで行う）
+const DEF_ACCTS = ['財布', 'Suica', 'PayPay', '銀行'];
+let OUT = { pending: [], last: null };   // pending=送信待ち、last={at, items}=前回送った分（1回分だけ残す。送れていなかったときの再送用）
+const ID_RE = /^th_\d{14}_\d{4}$/;
+const validRec = r => !!r && typeof r === 'object' && ID_RE.test(r.id || '') && !!r.created_at &&
+  (r.kind === '収支' ? !!r.item && r.amount > 0 && 'from' in r && 'to' in r : typeof r.text === 'string' && !!r.text.trim() && KINDS.includes(r.kind));
+const saveOut = async () => { const a = await kvPut('outbox', OUT.pending), b = await kvPut('lastsent', OUT.last); return a && b; };
+async function loadOut() {
+  const p = await kvGet('outbox'), l = await kvGet('lastsent');
+  OUT.pending = Array.isArray(p) ? p.filter(validRec) : [];
+  OUT.last = l && Array.isArray(l.items) && l.items.filter(validRec).length ? { at: String(l.at || ''), items: l.items.filter(validRec) } : null;
+}
+function isoLocal(d) {   // 2026-11-11T09:12:00+09:00（端末の時刻。「明日」「来週」などをMacが解釈する基準になる）
+  const o = -d.getTimezoneOffset(), sg = o >= 0 ? '+' : '-', a = Math.abs(o);
+  return `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sg}${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
+}
+function newId() {   // th_連番（yyyyMMddHHmmss）_乱数4桁。ショートカットと同じ形。Macは id で重複を無視する
+  const d = new Date(), base = `th_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}_`;
+  const used = new Set(OUT.pending.concat(OUT.last ? OUT.last.items : []).map(r => r.id));
+  let id; do { id = base + (1000 + Math.floor(Math.random() * 9000)); } while (used.has(id));
+  return id;
+}
+/* 本文の途中に「id:」で始まる行があると、Macが別の入力の始まりと読むので、先頭に「・」を付ける（ごくまれ） */
+const safeBody = t => String(t).replace(/\r\n?/g, '\n').split('\n').map(l => (/^\s*id\s*[:：]/i.test(l) ? '・' + l : l)).join('\n').trim();
+const recText = r => (r.kind === '収支'
+  ? ['id: ' + r.id, 'kind: 収支', 'created_at: ' + r.created_at, 'item: ' + r.item, 'amount: ' + r.amount, 'from: ' + r.from, 'to: ' + r.to]
+  : ['id: ' + r.id, 'kind: ' + r.kind, 'created_at: ' + r.created_at, 'text: ' + safeBody(r.text)]).join('\n');
+const filesText = recs => recs.map(recText).join('\n') + '\n';   // 複数件は、1つのファイルに続けて書く（Macは id: の行で区切って読む）
+const describe = r => (r.kind === '収支' ? `${r.item}　${yen(r.amount)}　${r.from}→${r.to}` : r.text);
+const acctNames = () => (S && S.accounts && S.accounts.length ? S.accounts.map(a => a.name) : DEF_ACCTS);
+
+/* 共有シートで、1つのテキストファイルとして渡す（AirDropでMacへ）。user gesture の中で、最初の await より前に呼ぶ */
+async function shareRecs(recs) {
+  const d = new Date(), name = `th_send_${ymd(d).replace(/-/g, '')}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.txt`;
+  const text = filesText(recs), file = new File([text], name, { type: 'text/plain' });
+  if (!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }))) return { r: 'unsupported', text };
+  try { await navigator.share({ files: [file] }); return { r: 'ok', text }; }
+  catch (e) { return { r: e && e.name === 'AbortError' ? 'cancel' : 'error', text }; }
+}
+let sending = false;
+async function doSend(again) {
+  if (sending) return;
+  const recs = again ? (OUT.last ? OUT.last.items.slice() : []) : OUT.pending.slice();
+  if (!recs.length) return;
+  sending = true;
+  try {
+    const { r, text } = await shareRecs(recs);
+    if (r === 'ok') {
+      if (again) OUT.last.at = isoLocal(new Date());
+      else { const ids = new Set(recs.map(x => x.id)); OUT.last = { at: isoLocal(new Date()), items: recs }; OUT.pending = OUT.pending.filter(x => !ids.has(x.id)); }
+      const saved = await saveOut();
+      closeSheet(); render();
+      toast(saved ? `${recs.length}件を共有しました。Macが動いていれば、取り込まれます` : `${recs.length}件を共有しました（端末への記録に失敗）`);
+    } else if (r === 'cancel') toast('送信をやめました（送信待ちは残っています）');
+    else if (r === 'unsupported') {
+      try { await navigator.clipboard.writeText(text); toast('この環境では共有できないため、文字をコピーしました（送信待ちは残しています）'); }
+      catch (e) { toast('この環境では共有できません。ホーム画面のアイコンから開いてください'); }
+    } else toast('共有できませんでした（送信待ちは残っています）');
+  } finally { sending = false; }
+}
+
+/* 追加・送信のシート（画面の上側に出す。iPhoneのキーボードで隠れないように） */
+const XICON = '<svg class="tri" viewBox="0 0 10 10" width="12" height="12" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>';
+function addHtml() {
+  if (ui.page === 'ledger') {
+    const ac = acctNames(), opt = (list, sel) => list.map(n => `<option ${n === sel ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    return `<h2>収支を追加</h2>
+      <label class="sh-l">品目<input id="f-item" data-focus="1" maxlength="60" autocomplete="off" placeholder="例: 昼食"></label>
+      <label class="sh-l">金額（円）<input id="f-amt" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="980"></label>
+      <div class="sh-two"><label class="sh-l">出金元<select id="f-from">${opt(ac.concat('なし'), ac.includes('財布') ? '財布' : ac[0])}</select></label>
+      <label class="sh-l">入金先<select id="f-to">${opt(['なし'].concat(ac), 'なし')}</select></label></div>
+      <div class="note">出金元だけ=支出、入金先だけ=収入、両方=移動。</div>
+      <div class="hint" id="f-hint"></div>
+      <div class="sh-act"><button class="btn" data-sheet-close="1">閉じる</button><button class="btn pri" data-add-go="1">送信待ちに追加</button></div>`;
+  }
+  return `<h2>入力を追加</h2>
+    <div class="sh-kinds" role="group" aria-label="種別">${KINDS.map(k => `<button type="button" class="sh-k ${k === ui.kind ? 'on' : ''}" data-kind="${k}">${k}</button>`).join('')}</div>
+    <label class="sh-l">メモ<textarea id="f-text" data-focus="1" rows="4" maxlength="1000" placeholder="例: 来週木曜15時に歯医者"></textarea></label>
+    <div class="note">日付や時刻は、文章に書いておくとMacが読み取ります。足りない分は、Macの「要確認」に入ります。完了の報告は、Macのボタンで行います。</div>
+    <div class="hint" id="f-hint"></div>
+    <div class="sh-act"><button class="btn" data-sheet-close="1">閉じる</button><button class="btn pri" data-add-go="1">送信待ちに追加</button></div>`;
+}
+function sendHtml() {
+  const p = OUT.pending, l = OUT.last;
+  const rows = p.map(r => `<div class="sh-item"><span class="sh-chip">${esc(r.kind)}</span><span class="sh-tx">${esc(describe(r))}</span>` +
+    `<button class="ibtn sm" data-out-del="${esc(r.id)}" aria-label="この入力を削除">${XICON}</button></div>`).join('');
+  const last = l ? `<h2>前回の送信（${l.items.length}件・${esc(stamp(l.at))}）</h2>
+      <div class="note">Macに届いていないときだけ、もう一度送ってください（Macは同じ入力を二重に登録しません）。</div>
+      <div class="sh-act"><button class="btn warn" data-last-clear="1">前回分を消す</button><button class="btn" data-send-again="1">もう一度送る</button></div>` : '';
+  return `<h2>送信待ち（${p.length}件）</h2>
+    ${rows || '<div class="note">送信待ちはありません。</div>'}
+    ${p.length ? '<div class="note">間違いは、右の×で消せます。送ると、この一覧から消えます。</div>' : ''}
+    <div class="sh-act"><button class="btn" data-sheet-close="1">閉じる</button><button class="btn pri" data-send-go="1" ${p.length ? '' : 'disabled'}>Macへ送る（${p.length}件）</button></div>${last}`;
+}
+function renderSheet() {
+  const sh = $('sheet');
+  if (!ui.sheet) { sh.hidden = true; $('shc').innerHTML = ''; return; }
+  $('shc').innerHTML = ui.sheet === 'add' ? addHtml() : sendHtml();
+  sh.hidden = false;
+  const f = document.querySelector('#shc [data-focus]'); if (f && ui.sheet === 'add') f.focus();   // クリックの中で呼ぶので、iPhoneでもキーボードが出る
+}
+function openSheet(kind) { ui.sheet = kind; ui.cal = false; renderDrawer(); renderSheet(); }
+function closeSheet() { ui.sheet = null; renderSheet(); }
+function addSubmit() {
+  const hint = $('f-hint'), bad = m => { hint.textContent = m; };
+  let rec;
+  if (ui.page === 'ledger') {
+    const item = $('f-item').value.replace(/\s+/g, ' ').trim(), raw = $('f-amt').value.normalize('NFKC').replace(/[,\s円]/g, '');
+    if (!item) return bad('品目を入力してください');
+    if (!/^\d+$/.test(raw) || +raw < 1) return bad('金額は、1以上の数字で入力してください');
+    rec = { id: newId(), created_at: isoLocal(new Date()), kind: '収支', item, amount: +raw, from: $('f-from').value, to: $('f-to').value };
+  } else {
+    const text = $('f-text').value.trim();
+    if (!text) return bad('メモを入力してください');
+    rec = { id: newId(), created_at: isoLocal(new Date()), kind: ui.kind, text };
+  }
+  OUT.pending.push(rec);
+  saveOut().then(ok => { if (!ok) toast('端末に保存できませんでした。送るまで、アプリを閉じないでください'); });
+  closeSheet(); render();
+  toast(`追加しました（送信待ち ${OUT.pending.length}件）`);
 }
 
 /* ---------- 縦タイムライン（1日。重なる予定は横に並ぶ。〆は線） ---------- */
@@ -148,6 +277,8 @@ function viewEvents() {
     ${day !== t ? `<div style="text-align:center;margin:-4px 0 8px"><button class="btn sm" data-daytoday="1">今日へ</button></div>` : ''}
     ${un}${vTimeline(day)}`;
 }
+/* 期限切れ（未完了で、期限が端末の今日より前）のタスクは、先頭の丸印を×にする。色は変えない（Mac版と同じ） */
+const OV_X = '<svg class="ov" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
 function viewTasks() {
   const t = TODAY();
   let rows = byKind('タスク');
@@ -156,8 +287,8 @@ function viewTasks() {
   const bar = ui.taskDay ? `<div class="fbar"><span>${fmtMDW(ui.taskDay)} の期限のみ</span><button class="btn sm" data-dayclear="1">解除</button></div>` : '';
   const row = i => {
     const od = i.due_date && i.due_date < t;
-    return `<div class="rc ${od ? 'od' : ''}"><div class="rl"><span class="sd open"><i class="dot"></i><span class="r1">${i.recurring_id ? '↻ ' : ''}${esc(i.title)}</span></span></div>` +
-      `<div class="rr ${od ? 'od' : ''}">${i.due_date ? fmtMDW(i.due_date) + (i.due_time ? '<br>' + i.due_time : '') : '<span class="muted">期限なし</span>'}</div></div>`;
+    return `<div class="rc"><div class="rl"><span class="sd open">${od ? OV_X : '<i class="dot"></i>'}<span class="r1">${i.recurring_id ? '↻ ' : ''}${esc(i.title)}</span></span></div>` +
+      `<div class="rr">${i.due_date ? fmtMDW(i.due_date) + (i.due_time ? '<br>' + i.due_time : '') : '<span class="muted">期限なし</span>'}</div></div>`;
   };
   return `${bar}${rows.map(row).join('') || '<div class="card muted">該当するタスクはありません</div>'}`;
 }
@@ -245,17 +376,18 @@ function topHtml() {
   const d = new Date(), key = ymd(d);
   const cal = S && calPage() ? `<button class="ibtn" data-open-cal="1" aria-label="カレンダー">${icon('events')}</button>` : '';
   const sub = S ? `最終更新: ${stamp(S.generated_at)}（${ageText()}）` : 'データ未読み込み';
-  const stale = S && (ageMin() || 0) >= 2880;
+  const stale = S && (ageMin() || 0) >= 2880, n = OUT.pending.length;
   return `<div class="th-row"><div class="th-date ${dayTone(key)}">${d.getMonth() + 1}/${d.getDate()}<span>${WDE[d.getDay()]}</span></div>
     <div class="th-btns">${cal}<button class="ibtn" data-load="1" aria-label="データを読み込む">${icon('load')}</button></div></div>
-    <div class="th-sub ${stale ? 'stale' : ''}">${sub}${stale ? ' ・古くなっています' : ''}</div>`;
+    <div class="th-subrow"><div class="th-sub ${stale ? 'stale' : ''}">${sub}${stale ? ' ・古くなっています' : ''}</div>
+    <button class="sendbtn ${n ? 'on' : ''}" data-send="1" ${n || OUT.last ? '' : 'disabled'}>送信 (${n})</button></div>`;
 }
 let lastPage = null;
 function render() {
   $('top').innerHTML = topHtml();
   $('tabs').innerHTML = TABS.map(([id, name]) => `<button class="tb ${ui.page === id ? 'on' : ''}" data-tab="${id}" aria-label="${name}">${icon(id)}<span>${name}</span></button>`).join('');
   const v = $('view'), keep = v.scrollTop;
-  v.innerHTML = (S ? VIEWS[ui.page]() : emptyHtml()) + `<div class="foot">AmeSSIST iPhone ${APP_VER}（閲覧専用）　<button class="btn sm" data-update="1">更新を確認</button></div>`;
+  v.innerHTML = (S ? VIEWS[ui.page]() : emptyHtml()) + `<div class="foot">AmeSSIST iPhone ${APP_VER}　<button class="btn sm" data-update="1">更新を確認</button></div>`;
   v.scrollTop = lastPage === ui.page ? keep : 0; lastPage = ui.page;
   const w = document.querySelector('.vt-wrap');   // 今日なら今の時刻の少し前、ほかの日は7:30から
   if (w) w.scrollTop = VT_HOUR * (ui.selDay === TODAY() ? Math.max(0, nowMin() / 60 - 1.5) : 7.5);
@@ -265,6 +397,24 @@ function render() {
 /* ---------- 操作 ---------- */
 document.addEventListener('click', e => {
   const t = e.target; let el;
+  /* 入力（段階2）: データを読み込んでいなくても使える */
+  if (t.closest('[data-add]')) { openSheet('add'); return; }
+  if (t.closest('[data-send]')) { openSheet('send'); return; }
+  if (t.closest('[data-sheet-bg]')) {   // 背景を押して閉じるのは、入力が空のときだけ（打ちかけの文字を、うっかり消さない）
+    const v = ($('f-text') || $('f-item') || {}).value; if (!v || !v.trim()) closeSheet(); return;
+  }
+  if (t.closest('[data-sheet-close]')) { closeSheet(); return; }
+  if ((el = t.closest('[data-kind]'))) {
+    ui.kind = el.dataset.kind;
+    document.querySelectorAll('#shc .sh-k').forEach(b => b.classList.toggle('on', b === el)); return;
+  }
+  if (t.closest('[data-add-go]')) { addSubmit(); return; }
+  if ((el = t.closest('[data-out-del]'))) {
+    OUT.pending = OUT.pending.filter(r => r.id !== el.dataset.outDel); saveOut(); renderSheet(); render(); return;
+  }
+  if (t.closest('[data-send-go]')) { doSend(false); return; }
+  if (t.closest('[data-send-again]')) { doSend(true); return; }
+  if (t.closest('[data-last-clear]')) { OUT.last = null; saveOut(); renderSheet(); render(); return; }
   if ((el = t.closest('[data-tab]'))) { ui.page = el.dataset.tab; ui.cal = false; render(); return; }
   if (t.closest('[data-load]')) { $('pick').click(); return; }
   if (t.closest('[data-update]')) { checkUpdate(true); return; }
@@ -323,6 +473,7 @@ function autoUpdate() {
 (async () => {
   S = await loadSnap();
   if (S && validate(S)) S = null;   // 壊れた保存データは使わない
+  await loadOut();
   ui.calMonth = TODAY().slice(0, 7); ui.selDay = TODAY();
   render();
   if (swOk()) {
