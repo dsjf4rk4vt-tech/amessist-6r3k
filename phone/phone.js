@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v2';
+const APP_VER = '段階2 v3';
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
