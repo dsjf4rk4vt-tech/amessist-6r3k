@@ -12,17 +12,14 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .th-btns{display:flex;gap:8px}
 .th-subrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:2px}
 .th-sub{font-size:12px;color:var(--muted);min-width:0}
-.sendbtn{flex:none;height:34px;padding:0 14px;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--ink);font:inherit;font-size:14px;font-weight:600;cursor:pointer;
-  transition:background-color var(--dur),transform var(--dur),opacity var(--dur)}
-.sendbtn.on{background:var(--accent);color:var(--accent-ink)}
-.sendbtn:active{transform:scale(var(--press))}
-.sendbtn:disabled{opacity:.35;pointer-events:none}
 .th-sub.stale{color:var(--neg);font-weight:600}
-.ibtn{display:inline-grid;place-items:center;width:42px;height:42px;padding:0;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--accent);cursor:pointer;
+.ibtn{position:relative;display:inline-grid;place-items:center;width:42px;height:42px;padding:0;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--accent);cursor:pointer;
   transition:background-color var(--dur),transform var(--dur),opacity var(--dur)}
 .ibtn:active{transform:scale(var(--press))}
 .ibtn:disabled{opacity:.3;pointer-events:none}
 .ibtn.sm{width:36px;height:36px}
+.ibtn.on{background:var(--accent);color:var(--accent-ink)}   /* 送信待ちがあるとき */
+.ibtn .bd{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--lime);color:#222;font-size:11px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--bg)}
 .pic{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tri{display:block}
 
@@ -120,8 +117,10 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .sh-l>input,.sh-l>select{height:46px}
 .sh-l>textarea{padding:10px 12px;line-height:1.5}
 .sh-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.sh-kinds{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.sh-k{height:40px;padding:0 14px;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--ink);font:inherit;font-size:15px;cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
+/* 種別: 1段目に「おまかせ」だけ、2段目に残りを等分（列の数は --kn。種別を増やしても、2段目に増えるだけ） */
+.sh-kinds{display:grid;grid-template-columns:repeat(var(--kn,4),minmax(0,1fr));gap:6px;margin:0 0 10px}
+.sh-kinds .sh-k:first-child{grid-column:1/-1}
+.sh-k{height:40px;padding:0 4px;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--ink);font:inherit;font-size:15px;cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
 .sh-k.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
 .sh-k:active{transform:scale(var(--press))}
 .sh-act{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}

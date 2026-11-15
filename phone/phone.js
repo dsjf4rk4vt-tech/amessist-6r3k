@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v1';
+const APP_VER = '段階2 v2';
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -17,6 +17,7 @@ const ICONS = {
   recurring: '<path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/>',
   ledger: '<circle cx="12" cy="12" r="9"/><path d="M9 7.5l3 4.5 3-4.5M12 12v5M9.5 12.5h5M9.5 15h5"/>',
   load: '<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
+  send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',   // 紙飛行機（送信。Mac版の ICONS.send と同じ）
 };
 const icon = id => `<svg class="pic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id]}</svg>`;
 const tri = d => `<svg class="tri" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="${d}" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
@@ -194,7 +195,7 @@ function addHtml() {
       <div class="sh-act"><button class="btn" data-sheet-close="1">閉じる</button><button class="btn pri" data-add-go="1">送信待ちに追加</button></div>`;
   }
   return `<h2>入力を追加</h2>
-    <div class="sh-kinds" role="group" aria-label="種別">${KINDS.map(k => `<button type="button" class="sh-k ${k === ui.kind ? 'on' : ''}" data-kind="${k}">${k}</button>`).join('')}</div>
+    <div class="sh-kinds" style="--kn:${KINDS.length - 1}" role="group" aria-label="種別">${KINDS.map(k => `<button type="button" class="sh-k ${k === ui.kind ? 'on' : ''}" data-kind="${k}">${k}</button>`).join('')}</div>
     <label class="sh-l">メモ<textarea id="f-text" data-focus="1" rows="4" maxlength="1000" placeholder="例: 来週木曜15時に歯医者"></textarea></label>
     <div class="note">日付や時刻は、文章に書いておくとMacが読み取ります。足りない分は、Macの「要確認」に入ります。完了の報告は、Macのボタンで行います。</div>
     <div class="hint" id="f-hint"></div>
@@ -377,10 +378,11 @@ function topHtml() {
   const cal = S && calPage() ? `<button class="ibtn" data-open-cal="1" aria-label="カレンダー">${icon('events')}</button>` : '';
   const sub = S ? `最終更新: ${stamp(S.generated_at)}（${ageText()}）` : 'データ未読み込み';
   const stale = S && (ageMin() || 0) >= 2880, n = OUT.pending.length;
+  /* 送信: 紙飛行機のアイコンだけ。送信待ちがあれば、右上に黄緑の件数バッジ（0件は出さない）。前回分だけが残っているときも押せる（もう一度送る） */
+  const snd = `<button class="ibtn ${n ? 'on' : ''}" data-send="1" aria-label="${n ? `送信待ち${n}件を送る` : '送信'}" ${n || OUT.last ? '' : 'disabled'}>${icon('send')}${n ? `<span class="bd">${n > 99 ? '99+' : n}</span>` : ''}</button>`;
   return `<div class="th-row"><div class="th-date ${dayTone(key)}">${d.getMonth() + 1}/${d.getDate()}<span>${WDE[d.getDay()]}</span></div>
-    <div class="th-btns">${cal}<button class="ibtn" data-load="1" aria-label="データを読み込む">${icon('load')}</button></div></div>
-    <div class="th-subrow"><div class="th-sub ${stale ? 'stale' : ''}">${sub}${stale ? ' ・古くなっています' : ''}</div>
-    <button class="sendbtn ${n ? 'on' : ''}" data-send="1" ${n || OUT.last ? '' : 'disabled'}>送信 (${n})</button></div>`;
+    <div class="th-btns">${cal}<button class="ibtn" data-load="1" aria-label="データを読み込む">${icon('load')}</button>${snd}</div></div>
+    <div class="th-subrow"><div class="th-sub ${stale ? 'stale' : ''}">${sub}${stale ? ' ・古くなっています' : ''}</div></div>`;
 }
 let lastPage = null;
 function render() {
