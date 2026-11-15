@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v3';
+const APP_VER = '段階2 v4';   // v4: タスクの進行中・仕上げ中、「×期限切れ」
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -53,8 +53,11 @@ const holName = key => ((S && S.holidays) || {})[key] || '';
 const dayTone = key => (holName(key) ? 'sun' : dowClass(parseD(key).getDay()));
 const itemDay = i => (i.kind === '予定' ? (i.start_at || '').slice(0, 10) : (i.due_date || ''));
 const itemTime = i => (i.kind === '予定' ? timeOf(i.start_at) : (i.due_time || ''));
-const todoSort = (a, b) => ((a.status === 'doing' ? 0 : 1) - (b.status === 'doing' ? 0 : 1)) || ((PRI[a.priority] ?? 3) - (PRI[b.priority] ?? 3)) || ((HOR[a.horizon] ?? 3) - (HOR[b.horizon] ?? 3)) || (a.id - b.id);
-const live = i => i.status === 'open' || i.status === 'doing';
+/* 状態: open=未着手 / doing=進行中 / almost=仕上げ中（タスクとToDo）。終わっていないのは、この3つ（Mac版 app.js と同じ） */
+const ST_LABEL = { open: '未着手', doing: '進行中', almost: '仕上げ中' };
+const inProgress = i => i.status === 'doing' || i.status === 'almost';
+const todoSort = (a, b) => ((inProgress(a) ? 0 : 1) - (inProgress(b) ? 0 : 1)) || ((PRI[a.priority] ?? 3) - (PRI[b.priority] ?? 3)) || ((HOR[a.horizon] ?? 3) - (HOR[b.horizon] ?? 3)) || (a.id - b.id);
+const live = i => i.status === 'open' || i.status === 'doing' || i.status === 'almost';
 const byKind = k => S.items.filter(i => i.kind === k && live(i));
 function dayEntries(day) {
   return S.items.filter(i => (i.kind === '予定' || i.kind === 'タスク') && live(i) && itemDay(i) === day)
@@ -99,7 +102,7 @@ const loadSnap = () => kvGet(KEY);
 function validate(j) {
   if (!j || typeof j !== 'object' || Array.isArray(j)) return 'AmeSSISTのiPhone用データではありません';
   if (!j.snapshot || j.snapshot.format !== 'amessist-snapshot') return 'AmeSSISTのiPhone用データではありません（snapshot.py で作ったファイルを選んでください）';
-  if (j.snapshot.version > 1) return 'このデータは新しい形式です。アプリを一度閉じて、開き直してください';
+  if (j.snapshot.version > 2) return 'このデータは新しい形式です。アプリを一度閉じて、開き直してください';
   for (const k of ['today', 'generated_at']) if (!j[k]) return 'データが足りません（' + k + '）';
   for (const k of ['items', 'ledger', 'accounts', 'recurring']) if (!Array.isArray(j[k])) return 'データが足りません（' + k + '）';
   return '';
@@ -278,8 +281,9 @@ function viewEvents() {
     ${day !== t ? `<div style="text-align:center;margin:-4px 0 8px"><button class="btn sm" data-daytoday="1">今日へ</button></div>` : ''}
     ${un}${vTimeline(day)}`;
 }
-/* 期限切れ（未完了で、期限が端末の今日より前）のタスクは、先頭の丸印を×にする。色は変えない（Mac版と同じ） */
-const OV_X = '<svg class="ov" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+/* タスクの丸印は ○未着手 ◐進行中 ◕仕上げ中（Mac版と同じ。形は ../style.css の .dot.<状態>）。
+   期限切れ（終わっていなくて、期限が端末の今日より前）のタスクは、状態にかかわらず、丸印を出さず、右に赤い「×期限切れ」を出す（Mac版と同じ）。
+   丸印のあった場所は、題名の位置がそろうよう、見えない丸印（.sp）で空けておく。 */
 function viewTasks() {
   const t = TODAY();
   let rows = byKind('タスク');
@@ -287,17 +291,19 @@ function viewTasks() {
   rows.sort((a, b) => ((a.due_date || '9') + (a.due_time || '')).localeCompare((b.due_date || '9') + (b.due_time || '')));
   const bar = ui.taskDay ? `<div class="fbar"><span>${fmtMDW(ui.taskDay)} の期限のみ</span><button class="btn sm" data-dayclear="1">解除</button></div>` : '';
   const row = i => {
-    const od = i.due_date && i.due_date < t;
-    return `<div class="rc"><div class="rl"><span class="sd open">${od ? OV_X : '<i class="dot"></i>'}<span class="r1">${i.recurring_id ? '↻ ' : ''}${esc(i.title)}</span></span></div>` +
-      `<div class="rr">${i.due_date ? fmtMDW(i.due_date) + (i.due_time ? '<br>' + i.due_time : '') : '<span class="muted">期限なし</span>'}</div></div>`;
+    const od = !!i.due_date && i.due_date < t;
+    const right = [i.due_date ? fmtMDW(i.due_date) + (i.due_time ? '<br>' + i.due_time : '') : '<span class="muted">期限なし</span>',
+      od ? '<span class="ovl">×期限切れ</span>' : (inProgress(i) ? `<span class="muted">${ST_LABEL[i.status]}</span>` : '')].filter(Boolean).join('<br>');
+    return `<div class="rc"><div class="rl"><span class="sd ${i.status}"><i class="dot ${od ? 'sp' : i.status}"></i><span class="r1">${i.recurring_id ? '↻ ' : ''}${esc(i.title)}</span></span></div>` +
+      `<div class="rr">${right}</div></div>`;
   };
   return `${bar}${rows.map(row).join('') || '<div class="card muted">該当するタスクはありません</div>'}`;
 }
 function viewTodo() {
   const rows = byKind('ToDo').sort(todoSort);
-  const row = i => `<div class="rc"><div class="rl"><span class="sd ${i.status}"><i class="dot"></i><span class="r1">${esc(i.title)}</span></span></div>` +
-    `<div class="rr">${esc([i.priority, i.horizon].filter(Boolean).join('・'))}${i.status === 'doing' ? '<br><span class="muted">進行中</span>' : ''}</div></div>`;
-  return rows.map(row).join('') || '<div class="card muted">未着手・進行中のToDoはありません</div>';
+  const row = i => `<div class="rc"><div class="rl"><span class="sd ${i.status}"><i class="dot ${i.status}"></i><span class="r1">${esc(i.title)}</span></span></div>` +
+    `<div class="rr">${esc([i.priority, i.horizon].filter(Boolean).join('・'))}${inProgress(i) ? `<br><span class="muted">${ST_LABEL[i.status]}</span>` : ''}</div></div>`;
+  return rows.map(row).join('') || '<div class="card muted">未完了のToDoはありません</div>';
 }
 /* 定期: 現行の期間のカードだけ（Done・管理・過去の記録はない）。今期の回数は、最終更新の時点のもの */
 function viewRecurring() {
