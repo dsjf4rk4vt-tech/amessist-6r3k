@@ -57,6 +57,16 @@ body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Hiragin
 .ni .bd{position:absolute;top:3px;right:2px;background:var(--lime);color:#222;border-radius:9px;min-width:17px;height:17px;padding:0 4px;font-size:11px;line-height:17px;text-align:center;font-weight:600}
 .ni .brand{font-size:20px;font-weight:700;letter-spacing:.01em}
 .sidesep{height:10px}
+/* iPhone用データの書き出し（紙飛行機）: サイドバーの最下部。button なので、枠・背景を消して .ni の見た目にそろえる */
+button.ni{border:0;background:none;font:inherit;text-align:left;cursor:pointer;padding:0;width:100%}
+.ni.snap{position:absolute;left:14px;right:14px;bottom:22px;width:auto}
+.ni.busy{opacity:.5;pointer-events:none}
+/* バックアップの表示: 書き出しボタンのすぐ上。成功=丸にチェック（緑）、失敗=丸に！（赤。面と文字も赤みにして、閉じていても目に付く）。形でも区別できる */
+.ni.bk{position:absolute;left:14px;right:14px;bottom:70px;width:auto}
+.ni.bk.ok .ico{color:var(--pos)}
+.ni.bk.ng{background:color-mix(in srgb,var(--neg) 14%,var(--side))}
+.ni.bk.ng .ico,.ni.bk.ng .lbl{color:var(--neg)}
+.ni.bk.ng .lbl{font-weight:600}
 .synced{margin:18px 4px 0;font-size:12px;color:var(--muted);white-space:nowrap}
 
 a{color:var(--strong)}
@@ -93,12 +103,13 @@ h1.pt .sep2{color:var(--muted);font-weight:400;margin:0 10px}
   .btn:hover{background:color-mix(in srgb,var(--ink) var(--hv),var(--btn))}
   .btn.pri:hover{background:color-mix(in srgb,#000 14%,var(--accent));transform:scale(1.04)}
   .btn.on:hover{background:color-mix(in srgb,var(--paper) 18%,var(--ink));transform:scale(1.04)}
-  #fab:hover{transform:scale(1.07);box-shadow:0 6px 18px rgba(0,0,0,.38)}
+  #fab:hover,#fabmenu .btn:hover{transform:scale(1.07);box-shadow:0 6px 18px rgba(0,0,0,.38)}
+  #fabmenu .btn:hover{background:var(--strong)}
   .ni:not(.on):hover{background:color-mix(in srgb,var(--accent) 14%,var(--side))}
   .tbl tr:hover td{background:color-mix(in srgb,var(--accent) 12%,var(--tile))}
   .cal .cell:not(.out):not(.sel):hover{background:color-mix(in srgb,var(--accent) 12%,var(--tile))}
 }
-.btn:active,.btn.pri:active,.btn.on:active,#fab:active,.ni:active{transform:scale(var(--press))}
+.btn:active,.btn.pri:active,.btn.on:active,#fab:active,#fabmenu .btn:active,.ni:active{transform:scale(var(--press))}
 .btn:focus-visible,.ni:focus-visible,#fab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .ni:focus-visible{outline-offset:-2px}
 input,select,textarea{background:var(--field);color:var(--ink);border:0;border-radius:var(--round-ui);padding:6px 10px;font:inherit;max-width:100%}
@@ -142,6 +153,8 @@ summary{cursor:pointer;font-weight:600}
 .sd.cancelled .dot{border:2px solid color-mix(in srgb,var(--muted) 45%,transparent)}
 .sd.cancelled{text-decoration:line-through}
 .od{color:var(--neg);font-weight:600}
+/* 期限切れのタスクの先頭の×印（色は変えず、まわりの文字色のまま。大きさはToDoの丸印 .dot と同じ11px） */
+.ov{display:inline-block;width:11px;height:11px;margin-right:7px;vertical-align:-1px;flex:none}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
 
 /* 絞り込み */
@@ -285,17 +298,18 @@ summary{cursor:pointer;font-weight:600}
 .big{font-size:34px;font-weight:600;line-height:1.2}
 /* 支出と収入は、カードを左右に二等分した、それぞれの中央に置く（左に詰めない） */
 .sumrow{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;text-align:center}
-/* 収支の右上カード: 支出・収入を少し下げ、「統計ページへ」はカードの下端に寄せる。下げる量は --sum-gap */
-.card.ledsum{display:flex;flex-direction:column;--sum-gap:36px}
-.ledsum .sumrow{margin-top:var(--sum-gap)}
-.ledsum .lnk{margin-top:auto;padding-top:14px;text-align:right}
-.inrow{display:flex;flex-wrap:wrap;align-items:flex-end;gap:2px;background:var(--card);border-radius:var(--radius);padding:12px 20px;margin-bottom:var(--gap)}
-.inrow label{margin-right:8px}
-.inrow .btn{margin-bottom:3px;margin-left:auto}
+/* 収支の右上カード: 支出・収入は、見出し（年月・差額）と下のリンクの間の、縦の真ん中に置く（上下の margin:auto）。
+   「統計ページへ」はカードの下端。--sum-gap は、カードが伸びない狭い窓（縦並び）でも確保する、上下の最低限の間隔 */
+.card.ledsum{display:flex;flex-direction:column;--sum-gap:24px}
+.ledsum .sumrow{margin:auto 0;padding:var(--sum-gap) 0}
+.ledsum .lnk{margin-top:0;padding-top:14px;text-align:right}
+/* 収支の入力は、右下の「＋」のモーダルに統一したので、ページ内の入力行（.inrow）は廃止（2026-11-11） */
 
 /* 要確認 */
 .inbox-log{margin-top:var(--sec)}
 .inbox-log .tbl td.t{max-width:320px;overflow:hidden;text-overflow:ellipsis}
+/* 取り込みの履歴の「種別」「結果」は、折り返さず、十分な幅を取る（入力の文が長くても、この2列は縮まない） */
+.inbox-log .tbl th.k,.inbox-log .tbl td.k{white-space:nowrap;min-width:7em}
 /* 要確認のカード: 上=元の入力・理由、下=入力欄。囲む面は作らず、入力欄そのものを白（ダークは黒に近い色。--field）にする */
 .rv-text{font-size:18px;font-weight:600;line-height:1.4}
 .rv-meta{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12px;color:var(--muted);margin:2px 0 10px}
@@ -315,8 +329,9 @@ summary{cursor:pointer;font-weight:600}
 #fab{position:fixed;right:40px;bottom:36px;width:68px;height:68px;border-radius:50%;border:0;background:var(--strong);color:#fff;font-size:38px;line-height:1;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.3);transition:transform var(--dur),box-shadow var(--dur)}
 /* 「＋」にマウスを乗せると、すぐ左に出る追加ボタン（予定=くり返し予定、定期=定期を追加）。
    ボタンの右に透明な橋（::after）を付け、「＋」から移るときに消えないようにする。Mac専用の挙動（ホバー）。 */
-#fabmenu{position:fixed;right:116px;bottom:50px;z-index:5;opacity:0;visibility:hidden;transform:translateX(6px);transition:opacity .15s,transform .15s,visibility .15s}
-#fabmenu .btn{position:relative;height:40px;padding:0 18px;font-size:14px;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+#fabmenu{position:fixed;right:116px;bottom:36px;z-index:5;opacity:0;visibility:hidden;transform:translateX(6px);transition:opacity .15s,transform .15s,visibility .15s}
+/* 「＋」と同じ高さ（68px）・色・影の、角を完全に丸めた丸薬型。bottom も「＋」と同じにして、縦の中心をそろえる */
+#fabmenu .btn{position:relative;height:68px;padding:0 30px;border-radius:34px;background:var(--strong);color:#fff;font-size:17px;font-weight:600;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,.3)}
 #fabmenu .btn::after{content:"";position:absolute;top:0;bottom:0;left:100%;width:8px}
 #fab:hover+#fabmenu,#fab:focus-visible+#fabmenu,#fabmenu:hover,#fabmenu:focus-within{opacity:1;visibility:visible;transform:none}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.4);overflow:auto;z-index:20}
@@ -352,8 +367,19 @@ summary{cursor:pointer;font-weight:600}
 #modal:not([hidden]){animation:bgIn .16s ease-out}
 #modal:not([hidden]) .dlg{animation:dlgIn .2s ease-out}
 #toast:not([hidden]){animation:toastIn .18s ease-out}
+/* トーストの操作ボタン（Doneの「取り消す」）。トーストは蛍光黄緑に濃い文字なので、ボタンは少し濃い面にする */
+#toast .toast-act{margin-left:14px;border:0;border-radius:14px;padding:2px 14px;background:rgba(0,0,0,.14);color:#222;font:inherit;font-weight:700;cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
+#toast .toast-act:active{transform:scale(var(--press))}
+@media (hover:hover){#toast .toast-act:hover{background:rgba(0,0,0,.26)}}
+/* 一覧の行: マウスを乗せると、その行にハイライト（残高の口座名と金額、ToDoの名前と期間など、左右が離れた行の対応を読みやすくする。Mac専用）。
+   左右に8pxの余白を足し、同じ分だけ外へ出すので、文字の位置は変わらない。残高の行は、上下も少し広げた（1→3px） */
+.kv:not(.total),.mini,.rec-item,.daylist .row,.plog .row{margin-left:-8px;margin-right:-8px;padding-left:8px;padding-right:8px;border-radius:8px;transition:background-color var(--dur)}
+.kv:not(.total){padding-top:3px;padding-bottom:3px}
+@media (hover:hover){
+  .kv:not(.total):hover,.mini:hover,.rec-item:hover,.daylist .row:hover,.plog .row:hover{background:color-mix(in srgb,var(--accent) 18%,var(--card))}
+}
 /* OSの「視差効果を減らす」設定では、動きを切る */
 @media (prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
-  .btn:active,.btn.pri:active,.btn.on:active,#fab:active,.ni:active{transform:none}
+  .btn:active,.btn.pri:active,.btn.on:active,#fab:active,#fabmenu .btn:active,.ni:active{transform:none}
 }
