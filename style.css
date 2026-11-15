@@ -129,7 +129,7 @@ summary{cursor:pointer;font-weight:600}
 /* 表 */
 .tbl{width:100%;border-collapse:separate;border-spacing:0 6px}
 .tbl th,.tbl td{padding:8px 10px;text-align:left;vertical-align:middle}
-.tbl th{font-weight:600;font-size:12px;color:var(--muted);padding-top:0;padding-bottom:0}
+.tbl th{font-weight:600;font-size:12px;color:var(--muted);padding-top:0;padding-bottom:0;white-space:nowrap}   /* 見出しが1文字ずつ縦に割れない */
 .tbl td{background:var(--tile)}
 .tbl td:first-child,.tbl th:first-child{padding-left:16px}
 .tbl td:last-child,.tbl th:last-child{padding-right:16px}
@@ -140,21 +140,30 @@ summary{cursor:pointer;font-weight:600}
 .tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
 .tbl tr.done td.t{text-decoration:line-through;color:var(--muted)}
 .tbl td.act{white-space:nowrap;text-align:right}
-.st{font-size:12px;border-radius:10px;padding:1px 9px;background:var(--hair);color:var(--ink)}
+.tbl td.nw{white-space:nowrap}
+.tbl td.t{min-width:9em}   /* 題名が1文字ずつ縦に割れない */
+.st{font-size:12px;border-radius:10px;padding:1px 9px;background:var(--hair);color:var(--ink);white-space:nowrap}   /* 「未完了」の札が3行に割れない */
 .st.done{background:var(--accent);color:var(--accent-ink)}
-/* ToDoの状態: 丸印の形で進み具合を表す（○未着手 → ◐進行中 → ●完了）。色は進行中の紫だけ */
+/* タスク・ToDoの状態: 丸印の形で進み具合を表す（○未着手 → ◐進行中 → ◕仕上げ中 → ●完了）。色は、進行中と仕上げ中の紫だけ。
+   期限切れのタスクは、丸印のかわりに、赤い「×期限切れ」（.sd.od）を出す。丸印の色は --c で切り替える。 */
 .sd{display:inline-flex;align-items:center;gap:7px;font-size:13px;white-space:nowrap}
-.dot{display:inline-block;width:11px;height:11px;border-radius:50%;flex:none;box-sizing:border-box}
-.sd.open .dot{border:2px solid var(--muted)}
-.sd.doing .dot,.dot.dg{border:2px solid var(--accent);background:linear-gradient(90deg,var(--accent) 50%,transparent 50%)}
-.sd.doing{font-weight:600}
-.sd.done .dot{background:color-mix(in srgb,var(--muted) 45%,transparent)}
+.dot{--c:var(--muted);display:inline-block;width:11px;height:11px;border-radius:50%;flex:none;box-sizing:border-box}
+.dot.doing,.dot.almost{--c:var(--accent)}
+.dot.open{border:2px solid var(--c)}
+.dot.doing{border:2px solid var(--c);background:linear-gradient(90deg,var(--c) 50%,transparent 50%)}   /* 左半分を塗る */
+.dot.almost{border:2px solid var(--c);background:conic-gradient(transparent 0 90deg,var(--c) 0)}   /* 右上の4分の1だけ白く残す */
+.dot.done{background:color-mix(in srgb,var(--muted) 45%,transparent)}
+.dot.cancelled{border:2px solid color-mix(in srgb,var(--muted) 45%,transparent)}
+.sd.doing,.sd.almost{font-weight:600}
 .sd.done,.sd.cancelled{color:var(--muted)}
-.sd.cancelled .dot{border:2px solid color-mix(in srgb,var(--muted) 45%,transparent)}
 .sd.cancelled{text-decoration:line-through}
 .od{color:var(--neg);font-weight:600}
-/* 期限切れのタスクの先頭の×印（色は変えず、まわりの文字色のまま。大きさはToDoの丸印 .dot と同じ11px） */
-.ov{display:inline-block;width:11px;height:11px;margin-right:7px;vertical-align:-1px;flex:none}
+.ovl{margin-left:4px;font-size:12px;font-weight:600;color:var(--neg);white-space:nowrap}   /* ホームの一覧で、期限の日付のあとに続ける「×期限切れ」 */
+.daylist .row .dot{margin-right:7px;vertical-align:-1px}   /* ホームの「期限が来ているタスク」の、名前の前の丸印 */
+/* 列の見出しで並べ替え（クリックで 昇順 → 降順 → 元の並び） */
+.tbl th.sortable{cursor:pointer;user-select:none}
+.tbl th.sortable .arr{margin-left:4px;font-size:9px;color:var(--accent)}
+@media (hover:hover){.tbl th.sortable:hover{color:var(--ink)}}
 .pos{color:var(--pos)}.neg{color:var(--neg)}
 
 /* 絞り込み */
@@ -207,7 +216,19 @@ summary{cursor:pointer;font-weight:600}
 .chip.done{opacity:.5}
 .chip.more{background:none;color:var(--muted);cursor:default}
 .split{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:var(--split-gap);align-items:start}
-@media (max-width:1100px){.split{grid-template-columns:1fr}}
+/* タスクのページは、右に表（6列）を置くので、予定より広い幅（1360px以下）まで1列にする。
+   （以前は app.js の style= で列を指定していたため、下の @media が効かず、狭い窓でも2列のまま表が潰れていた） */
+.split.tk{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}
+@media (max-width:1100px){.split{grid-template-columns:1fr;row-gap:var(--gap)}}
+@media (max-width:1360px){.split.tk{grid-template-columns:1fr;row-gap:var(--gap)}}
+/* 月カレンダーの引き出し（予定・タスク）。広い窓では、カレンダーがいつも開いている（開閉ボタンは出ない）。
+   1列になる幅（予定=1100px以下、タスク=1360px以下）では、開閉ボタンだけが出て、カレンダーは、ボタンを押すまで隠れる。
+   開閉の状態は app.js の ui.calOpen。日を選ぶと、引き出しは閉じる。 */
+.calbtn{display:none;align-items:center;gap:12px}
+.calbtn .calbtn-m{opacity:.65;font-variant-numeric:tabular-nums}
+.caldrawer.open .calbtn{margin-bottom:14px}
+@media (max-width:1100px){.caldrawer .calbtn{display:inline-flex}.caldrawer:not(.open) .calbox{display:none}}
+@media (max-width:1360px){.caldrawer.tk .calbtn{display:inline-flex}.caldrawer.tk:not(.open) .calbox{display:none}}
 
 /* 縦のタイムライン（1日）。高さは --vt-h、1時間の高さは app.js の VT_HOUR */
 .vt-wrap{height:var(--vt-h);overflow:auto;background:var(--tile);border-radius:var(--round-box);padding:6px 0}
@@ -382,4 +403,17 @@ summary{cursor:pointer;font-weight:600}
 @media (prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
   .btn:active,.btn.pri:active,.btn.on:active,#fab:active,#fabmenu .btn:active,.ni:active{transform:none}
+}
+
+/* 半分の幅（約720〜800px）: 追加日・達成日の列を省いて、題名に幅をまわす。ホームの時刻目盛りも詰める */
+@media (max-width:800px){
+  .hide-sm{display:none}
+  /* 状態の絞り込みは7つ。幅720pxでも1行に収まるよう、ボタンを少し細くする（長い「期限切れ以外」だけ、文字に合わせて広げる） */
+  .filters.fx{--fx-btn:66px}
+  .filters.fx .btn.lg{width:auto;padding-left:10px;padding-right:10px}
+  .tbl td.act .btn.sm{padding-left:6px;padding-right:6px}   /* 行のボタンは最大5つ（仕上げ中・完了・戻す・編集・取消）。幅720pxで表がはみ出さないよう詰める */
+  .tbl th,.tbl td{padding-left:7px;padding-right:7px}
+  .tbl td.t{min-width:7em}
+  .ht .tick{font-size:11px;padding-left:4px}
+  .ht .tick:first-child{padding-left:4px}
 }
