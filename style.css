@@ -212,7 +212,9 @@ summary{cursor:pointer;font-weight:600}
 .dn.today{background:var(--strong);color:#fff!important}
 /* 月カレンダーのマスの中の日付は、左上（数字を行として独立させ、チップは次の行から） */
 .cal .cell>.dn{display:grid;width:max-content;margin:0 auto 0 var(--dn-gap)}
-.chip{background:var(--accent);color:var(--accent-ink);border-radius:6px;font-size:11px;line-height:1.5;padding:0 6px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
+.ser{--evbg:color-mix(in srgb,var(--accent) 24%,var(--paper));--evfg:var(--ink)}   /* くり返し予定（series_id）は微薄色 */
+.imp{--evbg:var(--lime);--evfg:#1b1b1b}   /* 重要の予定は、黄緑（--lime）の濃い塗り。くり返しより優先（.ser のあとに書く） */
+.chip{background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink));border-radius:6px;font-size:11px;line-height:1.5;padding:0 6px;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}
 .chip.done{opacity:.5}
 .chip.more{background:none;color:var(--muted);cursor:default}
 .split{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:var(--split-gap);align-items:start}
@@ -236,8 +238,15 @@ summary{cursor:pointer;font-weight:600}
 .vt .hr{position:absolute;left:0;right:0;font-size:12px;line-height:18px;color:var(--muted);padding-left:14px;transform:translateY(-9px)}
 .vt .hr::after{content:"";position:absolute;left:50px;top:9px;width:8px;border-top:1px solid var(--muted);opacity:.5}
 .vt .lane{position:absolute;left:58px;right:8px;top:0;bottom:0;z-index:1}   /* 予定カードは、締切の線より手前 */
-.vt .ev{position:absolute;background:var(--accent);color:var(--accent-ink);border-radius:10px;font-size:12px;padding:2px 6px;overflow:hidden;border:1px solid var(--paper);cursor:pointer}
+.vt .ev{position:absolute;background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink));border-radius:10px;font-size:12px;padding:2px 6px;overflow:hidden;border:1px solid var(--paper);cursor:pointer}
 .vt .ev.done{opacity:.5}
+.vt .ev.one{white-space:nowrap;text-overflow:ellipsis;line-height:1.4;padding-top:1px;padding-bottom:1px}   /* 低いカード: 名前と時刻を1行に */
+.vt .ev .tm{font-size:11px;margin-left:4px}
+/* 終了時刻のない予定（長さ0分）: 線と札（〆と同じ作りで、色は予定の色。札は左側） */
+.vt .evline{position:absolute;left:58px;right:8px;height:0;border-top:3px solid var(--evbg,var(--accent));z-index:0;pointer-events:none}
+.vt .evlab{position:absolute;left:62px;max-width:46%;transform:translateY(-100%);z-index:2;background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink));
+  border-radius:8px 8px 8px 0;font-size:11px;line-height:1.5;padding:0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.vt .evline.done,.vt .evlab.done{opacity:.5}
 /* 締切（〆）: 線は予定カードの背面（z-index 0）、文字札は右の端に固定して手前（z-index 2） */
 .vt .dueline{position:absolute;left:58px;right:8px;height:0;border-top:3px solid var(--accent);z-index:0;pointer-events:none}
 .vt .duelab{position:absolute;right:8px;max-width:46%;transform:translateY(-100%);z-index:2;background:var(--paper);color:var(--ink);
@@ -248,6 +257,8 @@ summary{cursor:pointer;font-weight:600}
 .daylist{margin-top:14px}
 .dayhead{margin-top:0}
 .daylist .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
+.daylist .row.past .t{color:var(--muted)}   /* 過ぎた予定（取消ではない）。打ち消し線は付けない */
+.daylist .star{font-style:normal;display:inline-block;background:var(--lime);color:#1b1b1b;border-radius:6px;font-size:11px;line-height:1.4;padding:0 4px;margin-right:6px}
 .daylist .row.done .t{text-decoration:line-through;color:var(--muted)}
 
 /* 横のタイムライン（今日）。高さは app.js の HT_ROW・HT_MIN_ROWS で決まる */
@@ -256,9 +267,12 @@ summary{cursor:pointer;font-weight:600}
 .ht .tick::before{content:"";position:absolute;left:0;top:7px;height:10px;border-left:1px solid var(--muted);opacity:.4}
 .ht .tick:first-child{padding-left:16px}
 .ht .tick:first-child::before{display:none}
-.ht .bar{position:absolute;height:32px;background:var(--accent);color:var(--accent-ink);border-radius:10px;font-size:13px;line-height:32px;text-align:center;overflow:hidden;white-space:nowrap;padding:0 6px;cursor:pointer}
+.ht .bar{position:absolute;height:32px;background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink));border-radius:10px;font-size:13px;line-height:32px;text-align:center;overflow:hidden;white-space:nowrap;padding:0 6px;cursor:pointer}
 .ht .bar.done{opacity:.5}
 .ht .dl{position:absolute;top:0;bottom:0;border-left:3px solid var(--accent)}
+.ht .dl.evl{border-left-color:var(--evbg,var(--accent));cursor:pointer}
+.ht .dl.evl span{background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink))}
+.ht .dl.evl.done{opacity:.5}
 .ht .dl span{position:absolute;bottom:4px;left:4px;font-size:11px;white-space:nowrap;background:var(--tile);padding:0 3px;border-radius:4px}
 .ht .now{top:0;bottom:0;border-left-width:2px}
 
@@ -417,3 +431,22 @@ summary{cursor:pointer;font-weight:600}
   .ht .tick{font-size:11px;padding-left:4px}
   .ht .tick:first-child{padding-left:4px}
 }
+
+/* 設定ページ（見た目の寸法）。数字を動かすと、すぐ画面に反映される（app.js の viewSettings・setFromInput） */
+.set-card{margin-bottom:var(--gap)}
+.set-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 18px;padding:9px 0}
+.set-lbl{flex:1 1 260px;min-width:0}
+.set-lbl b{font-weight:600;font-size:14px}
+.set-lbl .muted{display:block;font-size:12px}
+.set-row.chg .set-lbl b::after{content:"●";margin-left:8px;font-size:9px;color:var(--accent);vertical-align:2px}   /* 保存していない変更 */
+.set-ctl{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.set-ctl input[type=range]{width:170px;height:auto;padding:0;background:none;accent-color:var(--accent)}
+.set-ctl input[type=number]{width:76px;text-align:right}
+.set-ctl .unit{width:22px;font-size:13px;color:var(--muted)}
+.set-act{display:flex;justify-content:flex-end;gap:8px;margin:var(--gap) 0 0}
+/* 保存していない変更があるとき、設定ページ以外の画面の下に出る帯 */
+#setbar{position:fixed;left:calc(var(--side-w) + var(--edge-x));bottom:36px;z-index:12;display:flex;align-items:center;gap:10px;
+  background:var(--card);color:var(--ink);padding:8px 8px 8px 18px;border-radius:24px;box-shadow:0 3px 12px rgba(0,0,0,.3);font-size:13px}
+#setbar[hidden]{display:none}
+#setbar a{font-size:13px;margin:0 8px 0 2px}
+@media (max-width:800px){.set-ctl input[type=range]{width:120px}}
