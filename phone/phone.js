@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v4';   // v4: タスクの進行中・仕上げ中、「×期限切れ」
+const APP_VER = '段階2 v5';   // v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -245,12 +245,30 @@ function addSubmit() {
 }
 
 /* ---------- 縦タイムライン（1日。重なる予定は横に並ぶ。〆は線） ---------- */
+/* 予定の見た目（Mac版と同じ。2026-11-15 C5-5）。過ぎた予定は時刻で薄く、くり返し（series_id）は微薄色、重要は黄緑（色は ../style.css の .ser・.imp）。
+   iPhone版には設定ページがないので、短い予定の最低の高さと、終了なしの長さ（0=細い線と札）は、ここの定数 */
+const VT_MIN_H = 24, EV_LEN = 0, LABH = 19;
+function isPast(i) {
+  if (i.kind !== '予定') return false;
+  if (!timeOf(i.start_at)) return itemDay(i) < TODAY();
+  const last = i.end_at && timeOf(i.end_at) ? i.end_at : i.start_at, n = nowMin();
+  return last.slice(0, 16) < `${TODAY()}T${pad(Math.floor(n / 60))}:${pad(n % 60)}`;
+}
+const evCls = i => [isPast(i) ? 'done' : '', i.series_id ? 'ser' : '', i.important ? 'imp' : ''].filter(Boolean).join(' ');
+function stackY(ys) {   // 同じ位置の札は、線はそのままで、札だけを上へ積む
+  const idx = ys.map((_, k) => k).sort((a, b) => ys[b] - ys[a]); let lim = Infinity; const out = ys.slice();
+  idx.forEach(k => { out[k] = Math.min(ys[k], lim); lim = out[k] - LABH; });
+  return out;
+}
 function vTimeline(day) {
-  const evs = S.items.filter(i => i.kind === '予定' && live(i) && itemDay(i) === day && timeOf(i.start_at))
+  const H = VT_HOUR, minMin = VT_MIN_H / H * 60;
+  const all = S.items.filter(i => i.kind === '予定' && live(i) && itemDay(i) === day && timeOf(i.start_at))
     .map(i => { const s = mins(timeOf(i.start_at)); const sameDay = (i.end_at || '').slice(0, 10) === day;
-                const e = sameDay && timeOf(i.end_at) ? mins(timeOf(i.end_at)) : (i.end_at && !sameDay ? 1440 : s + 60);
-                return { i, s, e: Math.min(Math.max(e, s + 30), 1440) }; })
-    .sort((a, b) => a.s - b.s || a.e - b.e);
+                let e, thin = false;
+                if (sameDay && timeOf(i.end_at)) e = mins(timeOf(i.end_at)); else if (i.end_at && !sameDay) e = 1440;
+                else if (EV_LEN > 0) e = s + EV_LEN; else { e = s; thin = true; }
+                return { i, s, e: Math.min(Math.max(e, s + minMin), 1440), thin }; });
+  const evs = all.filter(x => !x.thin).sort((a, b) => a.s - b.s || a.e - b.e);
   const cols = []; let cluster = []; let clusterEnd = -1; const placed = [];
   const flush = () => { const n = Math.max(...cluster.map(x => x.col)) + 1; cluster.forEach(x => { x.n = n; placed.push(x); }); cluster = []; cols.length = 0; clusterEnd = -1; };
   evs.forEach(ev => {
@@ -259,13 +277,19 @@ function vTimeline(day) {
     cols[c] = ev.e; ev.col = c; cluster.push(ev); clusterEnd = Math.max(clusterEnd, ev.e);
   });
   if (cluster.length) flush();
-  const H = VT_HOUR;
   const hours = Array.from({ length: 24 }, (_, h) => `<div class="hr" style="top:${h * H}px">${pad(h)}:00</div>`).join('');
-  const blocks = placed.map(ev => `<div class="ev" title="${esc(ev.i.title)}" style="top:${ev.s / 60 * H}px;height:${(ev.e - ev.s) / 60 * H}px;left:${ev.col / ev.n * 100}%;width:${100 / ev.n}%">` +
-    `${esc(ev.i.title)}<br>${timeOf(ev.i.start_at)}${timeOf(ev.i.end_at) ? '–' + timeOf(ev.i.end_at) : ''}${ev.i.place ? ' ' + esc(ev.i.place) : ''}</div>`).join('');
+  const blocks = placed.map(ev => {
+    const hpx = (ev.e - ev.s) / 60 * H, one = hpx < 40, tm = timeOf(ev.i.start_at) + (timeOf(ev.i.end_at) ? '–' + timeOf(ev.i.end_at) : '');
+    return `<div class="ev ${evCls(ev.i)}${one ? ' one' : ''}" title="${esc(ev.i.title)}" style="top:${ev.s / 60 * H}px;height:${hpx}px;left:${ev.col / ev.n * 100}%;width:${100 / ev.n}%">` +
+      (one ? `${esc(ev.i.title)} <span class="tm">${tm}</span>` : `${esc(ev.i.title)}<br>${tm}${ev.i.place ? ' ' + esc(ev.i.place) : ''}`) + `</div>`;
+  }).join('');
   const due = S.items.filter(i => i.kind === 'タスク' && live(i) && i.due_date === day && i.due_time);
-  const lines = due.map(i => `<div class="dueline" style="top:${mins(i.due_time) / 60 * H}px"></div>`).join('');
-  const labs = due.map(i => `<div class="duelab" style="top:${mins(i.due_time) / 60 * H}px">〆 ${esc(i.title)} ${i.due_time}</div>`).join('');
+  const thins = all.filter(x => x.thin);
+  const dueYs = stackY(due.map(i => mins(i.due_time) / 60 * H)), thinYs = stackY(thins.map(x => x.s / 60 * H));
+  const lines = due.map(i => `<div class="dueline" style="top:${mins(i.due_time) / 60 * H}px"></div>`).join('') +
+    thins.map(x => `<div class="evline ${evCls(x.i)}" style="top:${x.s / 60 * H}px"></div>`).join('');
+  const labs = due.map((i, k) => `<div class="duelab" style="top:${dueYs[k]}px">〆 ${esc(i.title)} ${i.due_time}</div>`).join('') +
+    thins.map((x, k) => `<div class="evlab ${evCls(x.i)}" style="top:${thinYs[k]}px">${esc(timeOf(x.i.start_at) + ' ' + x.i.title)}</div>`).join('');
   const now = day === TODAY() ? `<div class="now" style="top:${nowMin() / 60 * H}px"></div>` : '';
   return `<div class="vt-wrap"><div class="vt" style="height:${24 * H}px">${hours}${lines}<div class="lane">${blocks}</div>${labs}${now}</div></div>`;
 }
@@ -274,7 +298,7 @@ function vTimeline(day) {
 function viewEvents() {
   const day = ui.selDay, d = parseD(day), t = TODAY();
   const untimed = dayEntries(day).filter(i => !itemTime(i));
-  const un = untimed.length ? `<div class="untimed">${untimed.map(i => `<div class="chip" title="${esc(i.title)}">${i.kind === 'タスク' ? '〆 ' : ''}${esc(i.title)}${i.place ? ' ' + esc(i.place) : ''}</div>`).join('')}</div>` : '';
+  const un = untimed.length ? `<div class="untimed">${untimed.map(i => `<div class="chip ${i.kind === '予定' ? evCls(i) : ''}" title="${esc(i.title)}">${i.kind === 'タスク' ? '〆 ' : ''}${esc(i.title)}${i.place ? ' ' + esc(i.place) : ''}</div>`).join('')}</div>` : '';
   return `<div class="daybar"><button class="ibtn sm" data-daynav="-1" aria-label="前の日">${tri(TRI_L)}</button>
     <div class="dt">${d.getMonth() + 1}月${d.getDate()}日<span class="${dayTone(day)}">${WDE[d.getDay()]}</span></div>
     <button class="ibtn sm" data-daynav="1" aria-label="次の日">${tri(TRI_R)}</button></div>
