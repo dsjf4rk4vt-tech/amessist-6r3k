@@ -24,7 +24,7 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .tri{display:block}
 
 /* 本文 */
-#view{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 200px}   /* 下は、右下の「ログ」「＋」に隠れない余白 */
+#view{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 214px}   /* 下は、右下の「ログ」「＋」に隠れない余白 */
 #view h2{font-size:16px;margin:20px 0 8px}
 .foot{margin:18px 0 0;text-align:center;font-size:11px;color:var(--muted)}
 .card{margin-bottom:12px}
@@ -101,11 +101,10 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .pfab{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;border:0;display:grid;place-items:center;padding:0;
   background:var(--strong);color:#fff;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.3);z-index:10;transition:transform var(--dur),box-shadow var(--dur)}
 .pfab:active{transform:scale(var(--press))}
-/* 「ログ」: 「＋」のすぐ上（文字つきの丸い札。右端をそろえる） */
-.pfab.log{width:auto;height:44px;padding:0 16px 0 13px;border-radius:22px;gap:6px;grid-auto-flow:column;font:inherit;font-size:15px;font-weight:600;
-  bottom:calc(142px + env(safe-area-inset-bottom));background:var(--accent);color:var(--accent-ink)}
-.pfab.log .pic{width:18px;height:18px}
-#toast{bottom:calc(200px + env(safe-area-inset-bottom))}
+/* 「ログ」: 「＋」のすぐ上（文字なし。「＋」と同じ56pxの丸。右端をそろえる）。間隔は10px */
+.pfab.log{bottom:calc(142px + env(safe-area-inset-bottom));background:var(--accent);color:var(--accent-ink)}
+.pfab.log .pic{width:26px;height:26px;stroke-width:2}
+#toast{bottom:calc(212px + env(safe-area-inset-bottom))}
 
 /* シート（追加・送信）: 画面の上側に出す（iPhoneのキーボードで入力欄が隠れないように）。面はカード色、入力欄そのものが白／黒（Mac版と同じ） */
 #sheet{position:fixed;inset:0;z-index:20}
