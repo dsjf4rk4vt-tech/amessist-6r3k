@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v8';   // v8: 縦タイムラインの線（〆・食事など）を箱の手前に（共用の style.css の変更を反映。コードの変更なし）。v7: 「ログ」ボタンを、文字なし・「＋」と同じ大きさの丸（ノートの絵）に。v6: 「ログ」ボタン（食事・歩数・やったこと・買い物をMacへ送る）。v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
+const APP_VER = '段階2 v9';   // v9: ログに「就寝」「起床」を追加（種類は 歩数・起床・就寝・食事・買い物・やったこと の2段並び。共用の style.css に、就寝・起床の色）。v8: 縦タイムラインの線（〆・食事など）を箱の手前に（共用の style.css の変更を反映。コードの変更なし）。v7: 「ログ」ボタンを、文字なし・「＋」と同じ大きさの丸（ノートの絵）に。v6: 「ログ」ボタン（食事・歩数・やったこと・買い物をMacへ送る）。v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -152,6 +152,7 @@ function logText(r) {   // ログ: 項目ごとに1行（行の配列を返す�
   const L = ['id: ' + r.id, 'kind: ログ', 'created_at: ' + r.created_at, 'type: ' + r.type, 'date: ' + r.date];
   if (r.type === '歩数') return L.concat('steps: ' + r.steps);
   if (r.time) L.push('time: ' + r.time);
+  if (TIME_TYPES.includes(r.type)) return L;   // 就寝・起床: text なし（日付と時刻だけ）
   if (r.type === '食事') L.push('category: ' + r.category);
   if (r.type === 'やったこと' && r.minutes) L.push('minutes: ' + r.minutes);
   if (r.type === '買い物' && r.place) L.push('place: ' + oneLine(r.place));
@@ -164,6 +165,7 @@ const filesText = recs => recs.map(recText).join('\n') + '\n';   // 複数件は
 function logDesc(r) {
   if (r.type === '歩数') return `${fmtMD(r.date)}　${Number(r.steps).toLocaleString('ja-JP')}歩`;
   const day = r.date === TODAY() ? '' : fmtMD(r.date) + ' ';
+  if (TIME_TYPES.includes(r.type)) return `${day}${r.time || '（送った時刻）'}`;
   return `${day}${r.time || ''}　` + (r.type === '食事' ? `${r.category}　${r.text}` : r.type === 'やったこと' ? r.text + (r.minutes ? `（${r.minutes}分）` : '') : r.text + (r.place ? `（${r.place}）` : ''));
 }
 const chipOf = r => (r.kind === 'ログ' ? r.type : r.kind);
@@ -221,10 +223,11 @@ function addHtml() {
     <div class="hint" id="f-hint"></div>
     <div class="sh-act"><button class="btn" data-sheet-close="1">閉じる</button><button class="btn pri" data-add-go="1">送信待ちに追加</button></div>`;
 }
-/* ---------- ログ入力（食事・歩数・やったこと・買い物）----------
+/* ---------- ログ入力（歩数・起床・就寝・食事・買い物・やったこと）----------
    入力項目は、Mac版と同じ。検査もMac版と同じ（Macでも、もう一度検査する。登録できなければ、取り込みの履歴に「破棄」と出る）。
    時刻のまるめ（10分刻みなど）はMac側で行う。 */
-const LOG_TYPES = ['食事', '歩数', 'やったこと', '買い物'];
+const LOG_TYPES = ['歩数', '起床', '就寝', '食事', '買い物', 'やったこと'];   // 種類ボタンの並び（2段）
+const TIME_TYPES = ['就寝', '起床'];   // 日付と時刻だけ（text なし。1日1件で、入れ直すとMacで書き換わる）
 const MEAL_CATS = ['朝', '昼', '夕', '間食'];
 const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 const validDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '') && ymd(parseD(d)) === d;
@@ -233,6 +236,7 @@ function logErr(r) {   // 登録できない理由（登録できるなら空の
   if (!validDate(r.date)) return '日付を入力してください';
   if (r.type === '歩数') return /^\d{1,6}$/.test(String(r.steps)) && +r.steps <= 200000 ? '' : '歩数は、0〜200000の数字で入力してください';
   if (r.time && !TIME_RE.test(r.time)) return '時刻は 12:30 の形式で入力してください';
+  if (TIME_TYPES.includes(r.type)) return '';
   const t = oneLine(r.text);
   if (r.type === '食事') return !MEAL_CATS.includes(r.category) ? '朝・昼・夕・間食のどれかを選んでください' : !t ? '食べたものを入力してください' : '';
   if (r.type === 'やったこと') {
@@ -254,7 +258,7 @@ function logSnap() {   // 画面の入力欄の値を、LOGD に写す
 }
 function logHtml() {
   const ty = LOGD.type, v = k => esc(LOGD[k]);
-  const kinds = `<div class="sh-kinds eq" style="--kn:4" role="group" aria-label="ログの種類">${LOG_TYPES.map(k => `<button type="button" class="sh-k ${k === ty ? 'on' : ''}" data-ltype="${k}">${k}</button>`).join('')}</div>`;
+  const kinds = `<div class="sh-kinds eq" style="--kn:3" role="group" aria-label="ログの種類">${LOG_TYPES.map(k => `<button type="button" class="sh-k ${k === ty ? 'on' : ''}" data-ltype="${k}">${k}</button>`).join('')}</div>`;
   const when = `<div class="sh-two"><label class="sh-l">日付<input type="date" data-ld="date" value="${v('date')}"></label>
     <label class="sh-l">時刻<input type="time" data-ld="time" value="${v('time')}"></label></div>`;
   const main = (label, ph) => `<label class="sh-l">${label}<input id="f-lmain" data-focus="1" data-ld="text" maxlength="200" autocomplete="off" placeholder="${ph}" value="${v('text')}"></label>`;
@@ -263,6 +267,9 @@ function logHtml() {
     body = `<label class="sh-l">歩数<input id="f-lmain" data-focus="1" data-ld="steps" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="8200" value="${v('steps')}"></label>
       <label class="sh-l">日付<input type="date" data-ld="date" value="${v('date')}"></label>`;
     note = '同じ日の歩数を入れ直すと、あとの入力で書き換わります（前の値は、Macに残ります）。';
+  } else if (TIME_TYPES.includes(ty)) {
+    body = when;
+    note = `${ty}は1日に1つです。同じ日の${ty}を入れ直すと、あとの入力で書き換わります（前の時刻は、Macに残ります）。時刻は、Macが設定の刻み（初めは10分）にまるめて記録します。空にすると、いまの時刻です。`;
   } else if (ty === '食事') {
     body = `<div class="sh-l">区分<div class="sh-kinds eq" style="--kn:4" role="group" aria-label="食事の区分">${MEAL_CATS.map(c => `<button type="button" class="sh-k ${c === LOGD.category ? 'on' : ''}" data-lcat="${c}">${c}</button>`).join('')}</div></div>
       ${main('食べたもの', '例: ラーメン')}${when}`;
@@ -283,7 +290,7 @@ function logSubmit() {
   if (L.type === '歩数') { const n = nf(L.steps).replace(/歩$/, ''); rec.steps = /^\d+$/.test(n) ? +n : n; }
   else {
     if (L.time) rec.time = L.time;
-    rec.text = oneLine(L.text);
+    if (!TIME_TYPES.includes(L.type)) rec.text = oneLine(L.text);
     if (L.type === '食事') rec.category = L.category;
     if (L.type === 'やったこと') { const m = nf(L.minutes); if (m) rec.minutes = /^\d+$/.test(m) ? +m : m; }
     if (L.type === '買い物') { const pl = oneLine(L.place); if (pl) rec.place = pl; }
