@@ -141,6 +141,7 @@ summary{cursor:pointer;font-weight:600}
 .tbl tr.done td.t{text-decoration:line-through;color:var(--muted)}
 .tbl td.act{white-space:nowrap;text-align:right}
 .tbl td.nw{white-space:nowrap}
+.tbl td.c{text-align:center}   /* ToDoの重要度・期間の中身は中央（見出しは左のまま） */
 .tbl td.t{min-width:9em}   /* 題名が1文字ずつ縦に割れない */
 .st{font-size:12px;border-radius:10px;padding:1px 9px;background:var(--hair);color:var(--ink);white-space:nowrap}   /* 「未完了」の札が3行に割れない */
 .st.done{background:var(--accent);color:var(--accent-ink)}
@@ -196,9 +197,9 @@ summary{cursor:pointer;font-weight:600}
 .cal-step .btn.sm{height:var(--ctl-sm);padding:0 12px}
 .cal-nav button[data-cal],.cal-nav button[data-year]{display:inline-grid;place-items:center;width:var(--ctl-sm);height:var(--ctl-sm);padding:0;border:0;border-radius:var(--round-ui);
   background:color-mix(in srgb,var(--accent) 12%,var(--paper));color:var(--accent);cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
-.cal-nav button[data-cal]:active,.cal-nav button[data-year]:active{transform:scale(var(--press))}
-@media (hover:hover){.cal-nav button[data-cal]:hover,.cal-nav button[data-year]:hover{background:color-mix(in srgb,var(--accent) 24%,var(--paper))}}
-.cal-nav button[data-cal]:focus-visible,.cal-nav button[data-year]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cal-nav button[data-cal]:active,.cal-nav button[data-year]:active:active{transform:scale(var(--press))}
+@media (hover:hover){.cal-nav button[data-cal]:hover,.cal-nav button[data-year]:hover:hover{background:color-mix(in srgb,var(--accent) 24%,var(--paper))}}
+.cal-nav button[data-cal]:focus-visible,.cal-nav button[data-year]:focus-visible:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .cal .h{padding:0 8px 2px;font-size:12px;font-weight:700;color:var(--muted)}
 .cal .h.sat,.cal .dn.sat{color:var(--sat)}.cal .h.sun,.cal .dn.sun{color:var(--sun)}
@@ -237,18 +238,20 @@ summary{cursor:pointer;font-weight:600}
 .vt{position:relative}
 .vt .hr{position:absolute;left:0;right:0;font-size:12px;line-height:18px;color:var(--muted);padding-left:14px;transform:translateY(-9px)}
 .vt .hr::after{content:"";position:absolute;left:50px;top:9px;width:8px;border-top:1px solid var(--muted);opacity:.5}
-.vt .lane{position:absolute;left:58px;right:8px;top:0;bottom:0;z-index:1}   /* 予定カードは、締切の線より手前 */
+/* 重なり順（下から）: 予定・ログの箱（.lane。z-index 1）→ 線（.dueline・.evline。2）→ 文字札（.duelab・.evlab。2。DOMで線のあと）→ 現在時刻（.now。3）。
+   線は箱より手前（2026-11-16に、背面から変更）。箱の上でも見失わないよう、線に --paper 色の細い縁取りを付ける。 */
+.vt .lane{position:absolute;left:58px;right:8px;top:0;bottom:0;z-index:1}
 .vt .ev{position:absolute;background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink));border-radius:10px;font-size:12px;padding:2px 6px;overflow:hidden;border:1px solid var(--paper);cursor:pointer}
 .vt .ev.done{opacity:.5}
 .vt .ev.one{white-space:nowrap;text-overflow:ellipsis;line-height:1.4;padding-top:1px;padding-bottom:1px}   /* 低いカード: 名前と時刻を1行に */
 .vt .ev .tm{font-size:11px;margin-left:4px}
-/* 終了時刻のない予定（長さ0分）: 線と札（〆と同じ作りで、色は予定の色。札は左側） */
-.vt .evline{position:absolute;left:58px;right:8px;height:0;border-top:3px solid var(--evbg,var(--accent));z-index:0;pointer-events:none}
+/* 線と札（終了時刻のない予定・ログの食事／買い物／完了ログ。〆と同じ作りで、色は予定・ログの色。札は左側）。線は箱より手前 */
+.vt .evline{position:absolute;left:58px;right:8px;height:0;border-top:3px solid var(--evbg,var(--accent));z-index:2;pointer-events:none;box-shadow:0 0 0 1px var(--paper)}
 .vt .evlab{position:absolute;left:62px;max-width:46%;transform:translateY(-100%);z-index:2;background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink));
   border-radius:8px 8px 8px 0;font-size:11px;line-height:1.5;padding:0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .vt .evline.done,.vt .evlab.done{opacity:.5}
-/* 締切（〆）: 線は予定カードの背面（z-index 0）、文字札は右の端に固定して手前（z-index 2） */
-.vt .dueline{position:absolute;left:58px;right:8px;height:0;border-top:3px solid var(--accent);z-index:0;pointer-events:none}
+/* 締切（〆）: 線は予定カードより手前（z-index 2。縁取りつき）、文字札は右の端に固定（z-index 2。線のあとに描くので線の上） */
+.vt .dueline{position:absolute;left:58px;right:8px;height:0;border-top:3px solid var(--accent);z-index:2;pointer-events:none;box-shadow:0 0 0 1px var(--paper)}
 .vt .duelab{position:absolute;right:8px;max-width:46%;transform:translateY(-100%);z-index:2;background:var(--paper);color:var(--ink);
   border:1px solid var(--accent);border-radius:8px 8px 0 8px;font-size:11px;line-height:1.5;padding:0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .vt .dueline.done,.vt .duelab.done{opacity:.45}
@@ -280,6 +283,13 @@ summary{cursor:pointer;font-weight:600}
 .home{min-width:0}
 /* ホームの下段（Daily/Weekly/Monthly）の上下は、他より広く（--sec） */
 .home .grid3{margin:var(--sec) 0}
+/* ホームの下段: ToDo・残高・今日のログの3枚（ログのデータがあるとき）。上の定期のカードとは、広い間隔(--sec)をあけない */
+.home .grid3.hbot{margin:0 0 var(--gap)}
+.hl-tx{min-width:0;overflow-wrap:anywhere}
+.mini.hl-row .mt{align-items:baseline;flex-wrap:wrap;gap:4px 7px}
+.mini .mt .lt{min-width:40px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
+.mini .llbig{font-size:18px}
+.hl-more{padding:2px 0;font-size:12px}
 .date span{font-weight:400;margin-left:10px}
 .ht + .muted{margin-top:8px}
 .wkstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
@@ -310,6 +320,11 @@ summary{cursor:pointer;font-weight:600}
 .rec-item.ok .rt{color:var(--strong);font-weight:600}
 .rec-item .rm{display:block;font-size:12px;color:var(--muted)}
 .card .hd{display:flex;justify-content:space-between;align-items:baseline}
+
+/* 並び替えの ▲▼（定期の管理カード、収支の口座）。行の右端のボタンの手前に、2つ並べる。端のボタンは薄くなって押せない（.btn:disabled） */
+.rbtns{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.mvs{display:inline-flex;gap:3px;margin-right:6px}
+.btn.sm.mv{min-width:26px;padding-left:0;padding-right:0;text-align:center;font-size:11px}
 
 /* 定期の過去の記録（期間ごとのカード） */
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:10px 0 12px}
@@ -361,10 +376,10 @@ summary{cursor:pointer;font-weight:600}
 .fgrid label{margin-right:8px}
 
 /* モーダル・トースト・追加ボタン */
-#fab{position:fixed;right:40px;bottom:36px;width:68px;height:68px;border-radius:50%;border:0;background:var(--strong);color:#fff;font-size:38px;line-height:1;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.3);transition:transform var(--dur),box-shadow var(--dur)}
+#fab{position:fixed;z-index:13;right:40px;bottom:36px;width:68px;height:68px;border-radius:50%;border:0;background:var(--strong);color:#fff;font-size:38px;line-height:1;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.3);transition:transform var(--dur),box-shadow var(--dur)}
 /* 「＋」にマウスを乗せると、すぐ左に出る追加ボタン（予定=くり返し予定、定期=定期を追加）。
    ボタンの右に透明な橋（::after）を付け、「＋」から移るときに消えないようにする。Mac専用の挙動（ホバー）。 */
-#fabmenu{position:fixed;right:116px;bottom:36px;z-index:5;opacity:0;visibility:hidden;transform:translateX(6px);transition:opacity .15s,transform .15s,visibility .15s}
+#fabmenu{position:fixed;right:116px;bottom:36px;z-index:13;display:flex;gap:10px;opacity:0;visibility:hidden;transform:translateX(6px);transition:opacity .15s,transform .15s,visibility .15s}
 /* 「＋」と同じ高さ（68px）・色・影の、角を完全に丸めた丸薬型。bottom も「＋」と同じにして、縦の中心をそろえる */
 #fabmenu .btn{position:relative;height:68px;padding:0 30px;border-radius:34px;background:var(--strong);color:#fff;font-size:17px;font-weight:600;white-space:nowrap;box-shadow:0 3px 12px rgba(0,0,0,.3)}
 #fabmenu .btn::after{content:"";position:absolute;top:0;bottom:0;left:100%;width:8px}
@@ -432,6 +447,9 @@ summary{cursor:pointer;font-weight:600}
   .ht .tick:first-child{padding-left:4px}
 }
 
+/* 日付ピッカー＋時刻ピッカー（app.js の dtField）。時刻の欄は、ピッカーのアイコンが切れない幅にする */
+.dtp{display:flex;gap:6px;align-items:center}
+input[type=time]{min-width:112px}
 /* 設定ページ（見た目の寸法）。数字を動かすと、すぐ画面に反映される（app.js の viewSettings・setFromInput） */
 .set-card{margin-bottom:var(--gap)}
 .set-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 18px;padding:9px 0}
@@ -450,3 +468,77 @@ summary{cursor:pointer;font-weight:600}
 #setbar[hidden]{display:none}
 #setbar a{font-size:13px;margin:0 8px 0 2px}
 @media (max-width:800px){.set-ctl input[type=range]{width:120px}}
+
+/* ---------- タグ（タスク・ToDo。2026-11-15） ----------
+   固定の8色（tc0〜tc7）。色相だけを変え、明るさ・濃さはそろえる。ライトは薄い面＋濃い字、ダークは暗い面＋明るい字。
+   色だけに頼らず、名前の文字が必ず付く。.tg には、既定の --h を置かない（色のクラスの指定を、継承で上書きしないため）。 */
+.tc0{--h:0}.tc1{--h:25}.tc2{--h:48}.tc3{--h:135}.tc4{--h:175}.tc5{--h:210}.tc6{--h:265}.tc7{--h:325}
+.tg{display:inline-block;margin-left:6px;padding:0 8px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;white-space:nowrap;vertical-align:1px;
+  background:hsl(var(--h) 70% 90%);color:hsl(var(--h) 60% 26%)}
+@media (prefers-color-scheme:dark){.tg{background:hsl(var(--h) 40% 27%);color:hsl(var(--h) 75% 84%)}}
+.tbl tr.done .tg{opacity:.55}
+.tbl td.t .tg:first-of-type{margin-left:8px}
+/* 絞り込みの行のタグ: ボタンの幅は自動（名前の長さに合わせる）。折り返す */
+.filters.fx .tgbtn{width:auto;padding-left:10px;padding-right:10px}
+.filters.fx.tgrow{flex-wrap:wrap}
+.tgdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:hsl(var(--h) 65% 50%)}
+.btn.on .tgdot{box-shadow:0 0 0 1.5px var(--paper)}
+.tgmng{margin-left:auto}
+/* 編集・直接入力: タグを押して付け外し。付いているものは塗り、付いていないものは枠だけ */
+.tagchips{display:flex;flex-wrap:wrap;gap:6px 4px;margin-top:4px;align-items:center}
+.tgsel{position:relative;margin:0;cursor:pointer}
+.tgsel input{position:absolute;opacity:0;width:100%;height:100%;margin:0;left:0;top:0;cursor:pointer}
+.tgsel .tg{margin-left:0;padding:1px 10px;font-size:12px;line-height:18px;background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1.5px var(--hair)}
+.tgsel input:checked+.tg{background:hsl(var(--h) 70% 90%);color:hsl(var(--h) 60% 26%);box-shadow:inset 0 0 0 1.5px hsl(var(--h) 55% 45%)}
+@media (prefers-color-scheme:dark){.tgsel input:checked+.tg{background:hsl(var(--h) 40% 27%);color:hsl(var(--h) 75% 84%);box-shadow:inset 0 0 0 1.5px hsl(var(--h) 55% 60%)}}
+.tgsel input:checked+.tg::before{content:"✓ "}
+.tgsel input:focus-visible+.tg{outline:2px solid var(--accent);outline-offset:2px}
+.tagnew{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tagnew-in{display:inline-flex;gap:8px;align-items:center}
+.tagnew-in[hidden]{display:none}
+.tagnew input{width:12em}
+/* タグの管理 */
+.tagrow{padding:10px 0;border-top:1px solid var(--hair)}
+.tagrow.off .tg{opacity:.5}
+.tagrow-top{display:flex;align-items:center;gap:10px}
+.tagrow-top .tg{margin-left:0;font-size:13px;padding:1px 12px}
+.tagrow-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.tagrow-ctl input{width:11em}
+.tgsws{display:inline-flex;gap:5px}
+.tgsw{width:20px;height:20px;border-radius:50%;border:0;padding:0;cursor:pointer;background:hsl(var(--h) 65% 50%);box-shadow:0 0 0 2px transparent;transition:box-shadow var(--dur)}
+.tgsw.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--ink)}
+.tgsw:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* ToDoの強調: 重要度「高」と期間「短期」だけ、塗りの丸い札にする（太字＋塗りで、色だけに頼らない） */
+.em{display:inline-block;padding:0 9px;border-radius:999px;font-size:12px;line-height:20px;font-weight:700;background:var(--accent);color:var(--accent-ink)}
+.tbl tr.done .em{background:color-mix(in srgb,var(--muted) 35%,transparent);color:var(--muted)}   /* 完了・取消のものは、目立たせない */
+
+/* ログページ（予定ページと同じ作り）。ログの色は、予定（紫）と区別できる薄い色: やったこと=緑、買い物=青、食事=だいだい */
+.llk-did{--evbg:color-mix(in srgb,var(--pos) 34%,var(--paper));--evfg:var(--ink)}
+.llk-shop{--evbg:color-mix(in srgb,var(--sat) 30%,var(--paper));--evfg:var(--ink)}
+.llk-meal{--evbg:color-mix(in srgb,#e8a317 36%,var(--paper));--evfg:var(--ink)}
+.cal .cell{position:relative}
+.cal .cell .stp{position:absolute;top:8px;right:7px;font-size:10px;line-height:1;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}   /* 歩数 */
+/* 1日の先頭の表: 歩数・朝・昼・夕 */
+.lltbl{background:var(--tile);border-radius:var(--round-box);padding:4px 12px;margin-bottom:10px}
+.llrow{display:flex;align-items:baseline;gap:10px;padding:4px 0}
+.llrow + .llrow{border-top:1px solid var(--hair)}
+.llh{flex:none;width:34px;font-size:13px;font-weight:700;color:var(--muted)}
+.llv{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.llit,.llv>.muted{display:flex;align-items:center;gap:8px;width:100%;min-width:0}
+.llv .btn{margin-left:auto;flex:none}
+.llit .lt{color:var(--muted);font-variant-numeric:tabular-nums}
+.llbig{font-size:20px;font-weight:600}
+.llt{min-width:0;overflow-wrap:anywhere}
+.llt .lt{display:inline-block;min-width:44px;margin-right:8px;color:var(--muted);font-variant-numeric:tabular-nums}
+.llt .st{margin-right:8px}
+@media (max-width:800px){.cal .cell .stp{font-size:9px;right:5px}.cal .cell .stp .u{display:none}}   /* 狭い窓: マスが細いので、「歩」を省いて、日付と重ならないように */
+/* 完了ログ（完了したタスク・ToDo・定期のDone）: やったこと（.llk-did）と同じ緑。第1段は表示だけなので、押しても何も開かない */
+.llk-dtask,.llk-dtodo,.llk-drec{--evbg:color-mix(in srgb,var(--pos) 34%,var(--paper));--evfg:var(--ink)}
+.vt .evlab.llk-dtask,.vt .evlab.llk-dtodo,.vt .evlab.llk-drec{cursor:default}
+.st.dl-task,.st.dl-todo,.st.dl-rec{background:color-mix(in srgb,var(--pos) 34%,var(--paper));color:var(--ink)}
+.row.done-log .btn{white-space:nowrap}
+.dlfix{margin-left:8px;font-size:11px;color:var(--muted);border:1px solid var(--hair);border-radius:999px;padding:0 7px;white-space:nowrap}
+.cal .cell .dlc{position:absolute;top:20px;right:7px;font-size:10px;line-height:1;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}   /* 完了ログの件数 */
+.cal .cell .dlc.solo{top:8px}   /* 歩数がない日は、歩数と同じ高さに出す */
+@media (max-width:800px){.cal .cell .dlc{font-size:9px;right:5px}}
