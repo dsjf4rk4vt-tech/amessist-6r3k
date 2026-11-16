@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v5';   // v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
+const APP_VER = '段階2 v6';   // v6: 「ログ」ボタン（食事・歩数・やったこと・買い物をMacへ送る）。v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -17,6 +17,7 @@ const ICONS = {
   recurring: '<path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/>',
   ledger: '<circle cx="12" cy="12" r="9"/><path d="M9 7.5l3 4.5 3-4.5M12 12v5M9.5 12.5h5M9.5 15h5"/>',
   load: '<path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>',
+  log: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',   // えんぴつ（ログ入力）
   send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',   // 紙飛行機（送信。Mac版の ICONS.send と同じ）
 };
 const icon = id => `<svg class="pic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id]}</svg>`;
@@ -127,7 +128,7 @@ const DEF_ACCTS = ['財布', 'Suica', 'PayPay', '銀行'];
 let OUT = { pending: [], last: null };   // pending=送信待ち、last={at, items}=前回送った分（1回分だけ残す。送れていなかったときの再送用）
 const ID_RE = /^th_\d{14}_\d{4}$/;
 const validRec = r => !!r && typeof r === 'object' && ID_RE.test(r.id || '') && !!r.created_at &&
-  (r.kind === '収支' ? !!r.item && r.amount > 0 && 'from' in r && 'to' in r : typeof r.text === 'string' && !!r.text.trim() && KINDS.includes(r.kind));
+  (r.kind === 'ログ' ? !logErr(r) : r.kind === '収支' ? !!r.item && r.amount > 0 && 'from' in r && 'to' in r : typeof r.text === 'string' && !!r.text.trim() && KINDS.includes(r.kind));
 const saveOut = async () => { const a = await kvPut('outbox', OUT.pending), b = await kvPut('lastsent', OUT.last); return a && b; };
 async function loadOut() {
   const p = await kvGet('outbox'), l = await kvGet('lastsent');
@@ -146,11 +147,27 @@ function newId() {   // th_連番（yyyyMMddHHmmss）_乱数4桁。ショート�
 }
 /* 本文の途中に「id:」で始まる行があると、Macが別の入力の始まりと読むので、先頭に「・」を付ける（ごくまれ） */
 const safeBody = t => String(t).replace(/\r\n?/g, '\n').split('\n').map(l => (/^\s*id\s*[:：]/i.test(l) ? '・' + l : l)).join('\n').trim();
-const recText = r => (r.kind === '収支'
+const oneLine = t => String(t == null ? '' : t).replace(/\s+/g, ' ').trim();
+function logText(r) {   // ログ: 項目ごとに1行（行の配列を返す）。text: は最後（Mac側の読み方。PROJECT.md 第5節）。歩数に time・text はない
+  const L = ['id: ' + r.id, 'kind: ログ', 'created_at: ' + r.created_at, 'type: ' + r.type, 'date: ' + r.date];
+  if (r.type === '歩数') return L.concat('steps: ' + r.steps);
+  if (r.time) L.push('time: ' + r.time);
+  if (r.type === '食事') L.push('category: ' + r.category);
+  if (r.type === 'やったこと' && r.minutes) L.push('minutes: ' + r.minutes);
+  if (r.type === '買い物' && r.place) L.push('place: ' + oneLine(r.place));
+  return L.concat('text: ' + safeBody(oneLine(r.text)));
+}
+const recText = r => (r.kind === 'ログ' ? logText(r) : r.kind === '収支'
   ? ['id: ' + r.id, 'kind: 収支', 'created_at: ' + r.created_at, 'item: ' + r.item, 'amount: ' + r.amount, 'from: ' + r.from, 'to: ' + r.to]
   : ['id: ' + r.id, 'kind: ' + r.kind, 'created_at: ' + r.created_at, 'text: ' + safeBody(r.text)]).join('\n');
 const filesText = recs => recs.map(recText).join('\n') + '\n';   // 複数件は、1つのファイルに続けて書く（Macは id: の行で区切って読む）
-const describe = r => (r.kind === '収支' ? `${r.item}　${yen(r.amount)}　${r.from}→${r.to}` : r.text);
+function logDesc(r) {
+  if (r.type === '歩数') return `${fmtMD(r.date)}　${Number(r.steps).toLocaleString('ja-JP')}歩`;
+  const day = r.date === TODAY() ? '' : fmtMD(r.date) + ' ';
+  return `${day}${r.time || ''}　` + (r.type === '食事' ? `${r.category}　${r.text}` : r.type === 'やったこと' ? r.text + (r.minutes ? `（${r.minutes}分）` : '') : r.text + (r.place ? `（${r.place}）` : ''));
+}
+const chipOf = r => (r.kind === 'ログ' ? r.type : r.kind);
+const describe = r => (r.kind === 'ログ' ? logDesc(r) : r.kind === '収支' ? `${r.item}　${yen(r.amount)}　${r.from}→${r.to}` : r.text);
 const acctNames = () => (S && S.accounts && S.accounts.length ? S.accounts.map(a => a.name) : DEF_ACCTS);
 
 /* 共有シートで、1つのテキストファイルとして渡す（AirDropでMacへ）。user gesture の中で、最初の await より前に呼ぶ */
@@ -204,9 +221,83 @@ function addHtml() {
     <div class="hint" id="f-hint"></div>
     <div class="sh-act"><button class="btn" data-sheet-close="1">閉じる</button><button class="btn pri" data-add-go="1">送信待ちに追加</button></div>`;
 }
+/* ---------- ログ入力（食事・歩数・やったこと・買い物）----------
+   入力項目は、Mac版と同じ。検査もMac版と同じ（Macでも、もう一度検査する。登録できなければ、取り込みの履歴に「破棄」と出る）。
+   時刻のまるめ（10分刻みなど）はMac側で行う。 */
+const LOG_TYPES = ['食事', '歩数', 'やったこと', '買い物'];
+const MEAL_CATS = ['朝', '昼', '夕', '間食'];
+const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+const validDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '') && ymd(parseD(d)) === d;
+function logErr(r) {   // 登録できない理由（登録できるなら空の文字列）
+  if (!LOG_TYPES.includes(r.type)) return '種類が正しくありません';
+  if (!validDate(r.date)) return '日付を入力してください';
+  if (r.type === '歩数') return /^\d{1,6}$/.test(String(r.steps)) && +r.steps <= 200000 ? '' : '歩数は、0〜200000の数字で入力してください';
+  if (r.time && !TIME_RE.test(r.time)) return '時刻は 12:30 の形式で入力してください';
+  const t = oneLine(r.text);
+  if (r.type === '食事') return !MEAL_CATS.includes(r.category) ? '朝・昼・夕・間食のどれかを選んでください' : !t ? '食べたものを入力してください' : '';
+  if (r.type === 'やったこと') {
+    if (!t) return 'やったことを入力してください';
+    return r.minutes != null && r.minutes !== '' && !(/^\d+$/.test(String(r.minutes)) && +r.minutes >= 1 && +r.minutes <= 1440) ? 'かかった時間（分）は、1〜1440の数字で入力してください' : '';
+  }
+  return t ? '' : '買ったものを入力してください';
+}
+const LOGD = { type: '食事', date: '', time: '', category: '朝', text: '', place: '', minutes: '', steps: '' };   // 入力中の値（種類を切り替えても、残す）
+const hhmm = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const mealByHour = () => { const h = new Date().getHours(); return h < 10 ? '朝' : h < 15 ? '昼' : h < 21 ? '夕' : '間食'; };   // いまの時刻から、ありそうな区分（変えられる）
+function openLog() {
+  let k = ''; try { k = localStorage.getItem('logKind') || ''; } catch (e) { /* 次へ */ }
+  Object.assign(LOGD, { type: LOG_TYPES.includes(k) ? k : '食事', date: TODAY(), time: hhmm(), category: mealByHour(), text: '', place: '', minutes: '', steps: '' });
+  openSheet('log');
+}
+function logSnap() {   // 画面の入力欄の値を、LOGD に写す
+  document.querySelectorAll('#shc [data-ld]').forEach(el => { LOGD[el.dataset.ld] = el.value; });
+}
+function logHtml() {
+  const ty = LOGD.type, v = k => esc(LOGD[k]);
+  const kinds = `<div class="sh-kinds eq" style="--kn:4" role="group" aria-label="ログの種類">${LOG_TYPES.map(k => `<button type="button" class="sh-k ${k === ty ? 'on' : ''}" data-ltype="${k}">${k}</button>`).join('')}</div>`;
+  const when = `<div class="sh-two"><label class="sh-l">日付<input type="date" data-ld="date" value="${v('date')}"></label>
+    <label class="sh-l">時刻<input type="time" data-ld="time" value="${v('time')}"></label></div>`;
+  const main = (label, ph) => `<label class="sh-l">${label}<input id="f-lmain" data-focus="1" data-ld="text" maxlength="200" autocomplete="off" placeholder="${ph}" value="${v('text')}"></label>`;
+  let body, note = '時刻は、Macが設定の刻み（初めは10分）にまるめて記録します。空にすると、いまの時刻です。';
+  if (ty === '歩数') {
+    body = `<label class="sh-l">歩数<input id="f-lmain" data-focus="1" data-ld="steps" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="8200" value="${v('steps')}"></label>
+      <label class="sh-l">日付<input type="date" data-ld="date" value="${v('date')}"></label>`;
+    note = '同じ日の歩数を入れ直すと、あとの入力で書き換わります（前の値は、Macに残ります）。';
+  } else if (ty === '食事') {
+    body = `<div class="sh-l">区分<div class="sh-kinds eq" style="--kn:4" role="group" aria-label="食事の区分">${MEAL_CATS.map(c => `<button type="button" class="sh-k ${c === LOGD.category ? 'on' : ''}" data-lcat="${c}">${c}</button>`).join('')}</div></div>
+      ${main('食べたもの', '例: ラーメン')}${when}`;
+  } else if (ty === 'やったこと') {
+    body = `${main('やったこと', '例: 部屋の掃除')}
+      <label class="sh-l">かかった時間（分・省略できます）<input data-ld="minutes" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="30" value="${v('minutes')}"></label>${when}`;
+  } else {
+    body = `${main('買ったもの', '例: 牛乳')}
+      <label class="sh-l">買った場所（省略できます）<input data-ld="place" maxlength="60" autocomplete="off" placeholder="例: スーパー" value="${v('place')}"></label>${when}`;
+  }
+  return `<h2>ログを追加</h2>${kinds}${body}<div class="note">${note}</div><div class="hint" id="f-hint"></div>
+    <div class="sh-act"><button class="btn" data-sheet-close="1">閉じる</button><button class="btn pri" data-log-go="1">送信待ちに追加</button></div>`;
+}
+function logSubmit() {
+  logSnap();
+  const hint = $('f-hint'), bad = m => { hint.textContent = m; }, L = LOGD, nf = x => String(x == null ? '' : x).normalize('NFKC').replace(/[,\s]/g, '');
+  const rec = { id: newId(), created_at: isoLocal(new Date()), kind: 'ログ', type: L.type, date: L.date };
+  if (L.type === '歩数') { const n = nf(L.steps).replace(/歩$/, ''); rec.steps = /^\d+$/.test(n) ? +n : n; }
+  else {
+    if (L.time) rec.time = L.time;
+    rec.text = oneLine(L.text);
+    if (L.type === '食事') rec.category = L.category;
+    if (L.type === 'やったこと') { const m = nf(L.minutes); if (m) rec.minutes = /^\d+$/.test(m) ? +m : m; }
+    if (L.type === '買い物') { const pl = oneLine(L.place); if (pl) rec.place = pl; }
+  }
+  const err = logErr(rec); if (err) return bad(err);
+  try { localStorage.setItem('logKind', L.type); } catch (e) { /* 覚えられなくても動く */ }
+  OUT.pending.push(rec);
+  saveOut().then(ok => { if (!ok) toast('端末に保存できませんでした。送るまで、アプリを閉じないでください'); });
+  closeSheet(); render();
+  toast(`追加しました（送信待ち ${OUT.pending.length}件）`);
+}
 function sendHtml() {
   const p = OUT.pending, l = OUT.last;
-  const rows = p.map(r => `<div class="sh-item"><span class="sh-chip">${esc(r.kind)}</span><span class="sh-tx">${esc(describe(r))}</span>` +
+  const rows = p.map(r => `<div class="sh-item"><span class="sh-chip">${esc(chipOf(r))}</span><span class="sh-tx">${esc(describe(r))}</span>` +
     `<button class="ibtn sm" data-out-del="${esc(r.id)}" aria-label="この入力を削除">${XICON}</button></div>`).join('');
   const last = l ? `<h2>前回の送信（${l.items.length}件・${esc(stamp(l.at))}）</h2>
       <div class="note">Macに届いていないときだけ、もう一度送ってください（Macは同じ入力を二重に登録しません）。</div>
@@ -219,9 +310,9 @@ function sendHtml() {
 function renderSheet() {
   const sh = $('sheet');
   if (!ui.sheet) { sh.hidden = true; $('shc').innerHTML = ''; return; }
-  $('shc').innerHTML = ui.sheet === 'add' ? addHtml() : sendHtml();
+  $('shc').innerHTML = ui.sheet === 'add' ? addHtml() : ui.sheet === 'log' ? logHtml() : sendHtml();
   sh.hidden = false;
-  const f = document.querySelector('#shc [data-focus]'); if (f && ui.sheet === 'add') f.focus();   // クリックの中で呼ぶので、iPhoneでもキーボードが出る
+  const f = document.querySelector('#shc [data-focus]'); if (f && (ui.sheet === 'add' || ui.sheet === 'log')) f.focus();   // クリックの中で呼ぶので、iPhoneでもキーボードが出る
 }
 function openSheet(kind) { ui.sheet = kind; ui.cal = false; renderDrawer(); renderSheet(); }
 function closeSheet() { ui.sheet = null; renderSheet(); }
@@ -431,9 +522,10 @@ document.addEventListener('click', e => {
   const t = e.target; let el;
   /* 入力（段階2）: データを読み込んでいなくても使える */
   if (t.closest('[data-add]')) { openSheet('add'); return; }
+  if (t.closest('[data-log]')) { openLog(); return; }
   if (t.closest('[data-send]')) { openSheet('send'); return; }
   if (t.closest('[data-sheet-bg]')) {   // 背景を押して閉じるのは、入力が空のときだけ（打ちかけの文字を、うっかり消さない）
-    const v = ($('f-text') || $('f-item') || {}).value; if (!v || !v.trim()) closeSheet(); return;
+    const v = ($('f-text') || $('f-item') || $('f-lmain') || {}).value; if (!v || !v.trim()) closeSheet(); return;
   }
   if (t.closest('[data-sheet-close]')) { closeSheet(); return; }
   if ((el = t.closest('[data-kind]'))) {
@@ -441,6 +533,12 @@ document.addEventListener('click', e => {
     document.querySelectorAll('#shc .sh-k').forEach(b => b.classList.toggle('on', b === el)); return;
   }
   if (t.closest('[data-add-go]')) { addSubmit(); return; }
+  if (t.closest('[data-log-go]')) { logSubmit(); return; }
+  if ((el = t.closest('[data-ltype]'))) { logSnap(); LOGD.type = el.dataset.ltype; renderSheet(); return; }
+  if ((el = t.closest('[data-lcat]'))) {
+    LOGD.category = el.dataset.lcat;
+    document.querySelectorAll('#shc [data-lcat]').forEach(b => b.classList.toggle('on', b === el)); return;
+  }
   if ((el = t.closest('[data-out-del]'))) {
     OUT.pending = OUT.pending.filter(r => r.id !== el.dataset.outDel); saveOut(); renderSheet(); render(); return;
   }

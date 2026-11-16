@@ -24,7 +24,7 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .tri{display:block}
 
 /* 本文 */
-#view{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 96px}   /* 下は、右下の「＋」に隠れない余白 */
+#view{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px 16px 200px}   /* 下は、右下の「ログ」「＋」に隠れない余白 */
 #view h2{font-size:16px;margin:20px 0 8px}
 .foot{margin:18px 0 0;text-align:center;font-size:11px;color:var(--muted)}
 .card{margin-bottom:12px}
@@ -101,7 +101,11 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .pfab{position:fixed;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;border:0;display:grid;place-items:center;padding:0;
   background:var(--strong);color:#fff;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.3);z-index:10;transition:transform var(--dur),box-shadow var(--dur)}
 .pfab:active{transform:scale(var(--press))}
-#toast{bottom:calc(146px + env(safe-area-inset-bottom))}
+/* 「ログ」: 「＋」のすぐ上（文字つきの丸い札。右端をそろえる） */
+.pfab.log{width:auto;height:44px;padding:0 16px 0 13px;border-radius:22px;gap:6px;grid-auto-flow:column;font:inherit;font-size:15px;font-weight:600;
+  bottom:calc(142px + env(safe-area-inset-bottom));background:var(--accent);color:var(--accent-ink)}
+.pfab.log .pic{width:18px;height:18px}
+#toast{bottom:calc(200px + env(safe-area-inset-bottom))}
 
 /* シート（追加・送信）: 画面の上側に出す（iPhoneのキーボードで入力欄が隠れないように）。面はカード色、入力欄そのものが白／黒（Mac版と同じ） */
 #sheet{position:fixed;inset:0;z-index:20}
@@ -121,6 +125,10 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 /* 種別: 1段目に「おまかせ」だけ、2段目に残りを等分（列の数は --kn。種別を増やしても、2段目に増えるだけ） */
 .sh-kinds{display:grid;grid-template-columns:repeat(var(--kn,4),minmax(0,1fr));gap:6px;margin:0 0 10px}
 .sh-kinds .sh-k:first-child{grid-column:1/-1}
+.sh-kinds.eq .sh-k:first-child{grid-column:auto}   /* ログの種類・食事の区分: 全部を同じ幅で1段に */
+.sh-kinds.eq .sh-k{height:42px;font-size:13px;white-space:nowrap;padding:0}   /* 「やったこと」が、狭い画面（幅375px）でも1行に収まる大きさ */
+.sh-l>.sh-kinds{margin-top:4px}
+.sh-l>input[type=date],.sh-l>input[type=time]{min-width:0;-webkit-appearance:none;appearance:none;text-align:left}
 .sh-k{height:40px;padding:0 4px;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--ink);font:inherit;font-size:15px;cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
 .sh-k.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
 .sh-k:active{transform:scale(var(--press))}
