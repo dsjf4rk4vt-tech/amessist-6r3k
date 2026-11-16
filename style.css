@@ -517,6 +517,7 @@ input[type=time]{min-width:112px}
 .llk-did{--evbg:color-mix(in srgb,var(--pos) 34%,var(--paper));--evfg:var(--ink)}
 .llk-shop{--evbg:color-mix(in srgb,var(--sat) 30%,var(--paper));--evfg:var(--ink)}
 .llk-meal{--evbg:color-mix(in srgb,#e8a317 36%,var(--paper));--evfg:var(--ink)}
+.llk-bed,.llk-wake{--evbg:color-mix(in srgb,#f06292 38%,var(--paper));--evfg:var(--ink)}   /* 就寝・起床は、同じピンク（見分けは札の文字）。くり返し予定の薄紫と区別でき、ダークでもくすまない濃さ。色を変えるなら、この1行だけ */
 .cal .cell{position:relative}
 .cal .cell .stp{position:absolute;top:8px;right:7px;font-size:10px;line-height:1;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}   /* 歩数 */
 /* 1日の先頭の表: 歩数・朝・昼・夕 */
