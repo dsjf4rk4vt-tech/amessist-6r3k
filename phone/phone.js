@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v9';   // v9: ログに「就寝」「起床」を追加（種類は 歩数・起床・就寝・食事・買い物・やったこと の2段並び。共用の style.css に、就寝・起床の色）。v8: 縦タイムラインの線（〆・食事など）を箱の手前に（共用の style.css の変更を反映。コードの変更なし）。v7: 「ログ」ボタンを、文字なし・「＋」と同じ大きさの丸（ノートの絵）に。v6: 「ログ」ボタン（食事・歩数・やったこと・買い物をMacへ送る）。v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
+const APP_VER = '段階2 v10';   // v10: 下タブの順を 収支・定期・ToDo・タスク・予定 に。月カレンダーの丸を、予定の色ごとに（重要・くり返し・標準）。「〆 タスクも表示」をオフにすると、縦タイムラインからもタスクを消す。完了したタスクを、縦タイムラインと月カレンダーに薄く残す（データ version 3。Macの api.py の更新と、データの書き出し直しが必要）。v9: ログに「就寝」「起床」を追加（種類は 歩数・起床・就寝・食事・買い物・やったこと の2段並び。共用の style.css に、就寝・起床の色）。v8: 縦タイムラインの線（〆・食事など）を箱の手前に（共用の style.css の変更を反映。コードの変更なし）。v7: 「ログ」ボタンを、文字なし・「＋」と同じ大きさの丸（ノートの絵）に。v6: 「ログ」ボタン（食事・歩数・やったこと・買い物をMacへ送る）。v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -24,7 +24,7 @@ const icon = id => `<svg class="pic" viewBox="0 0 24 24" fill="none" stroke="cur
 const tri = d => `<svg class="tri" viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><path d="${d}" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 const TRI_L = 'M7 1.5L2.5 5 7 8.5z', TRI_R = 'M3 1.5L7.5 5 3 8.5z';
 /* 下タブ（左から）。ホームはない。最初に開くのは予定 */
-const TABS = [['ledger', '収支'], ['todo', 'ToDo'], ['tasks', 'タスク'], ['recurring', '定期'], ['events', '予定']];
+const TABS = [['ledger', '収支'], ['recurring', '定期'], ['todo', 'ToDo'], ['tasks', 'タスク'], ['events', '予定']];   // 2026-11-17: 収支・定期・ToDo・タスク・予定（最初に開くのは、いままでどおり予定）
 const PRI = { '高': 0, '中': 1, '低': 2 };
 const HOR = { '短期': 0, '中期': 1, '長期': 2 };
 const VT_HOUR = 60;   // 縦タイムラインの1時間の高さ（px）
@@ -60,6 +60,12 @@ const inProgress = i => i.status === 'doing' || i.status === 'almost';
 const todoSort = (a, b) => ((inProgress(a) ? 0 : 1) - (inProgress(b) ? 0 : 1)) || ((PRI[a.priority] ?? 3) - (PRI[b.priority] ?? 3)) || ((HOR[a.horizon] ?? 3) - (HOR[b.horizon] ?? 3)) || (a.id - b.id);
 const live = i => i.status === 'open' || i.status === 'doing' || i.status === 'almost';
 const byKind = k => S.items.filter(i => i.kind === k && live(i));
+/* 完了したタスク（2026-11-17）。Macが、予定の窓の中に期限がある分だけを S.closed に入れて渡す（データ version 3）。
+   予定タブの縦タイムライン・月カレンダーに、薄く出す専用。タスクの一覧・ToDo・期限切れなどは、いままでどおり終わっていないものだけ（S.items）。
+   古いデータ（version 2 まで）は S.closed が空なので、完了タスクは出ない（動きは変わらない） */
+const doneTasks = () => (S.closed || []).filter(i => i.kind === 'タスク' && i.status === 'done');
+/* 予定タブに重ねるタスク（〆）。「〆 タスクも表示」がオフなら、何も出さない。完了したものは、あとに付ける（描画側で薄くする） */
+const evTaskItems = () => (ui.evTasks ? S.items.filter(i => i.kind === 'タスク' && live(i)).concat(doneTasks()) : []);
 function dayEntries(day) {
   return S.items.filter(i => (i.kind === '予定' || i.kind === 'タスク') && live(i) && itemDay(i) === day)
     .sort((a, b) => (itemTime(a) || '99:99').localeCompare(itemTime(b) || '99:99'));
@@ -103,7 +109,7 @@ const loadSnap = () => kvGet(KEY);
 function validate(j) {
   if (!j || typeof j !== 'object' || Array.isArray(j)) return 'AmeSSISTのiPhone用データではありません';
   if (!j.snapshot || j.snapshot.format !== 'amessist-snapshot') return 'AmeSSISTのiPhone用データではありません（snapshot.py で作ったファイルを選んでください）';
-  if (j.snapshot.version > 2) return 'このデータは新しい形式です。アプリを一度閉じて、開き直してください';
+  if (j.snapshot.version > 3) return 'このデータは新しい形式です。アプリを一度閉じて、開き直してください';
   for (const k of ['today', 'generated_at']) if (!j[k]) return 'データが足りません（' + k + '）';
   for (const k of ['items', 'ledger', 'accounts', 'recurring']) if (!Array.isArray(j[k])) return 'データが足りません（' + k + '）';
   return '';
@@ -381,12 +387,12 @@ function vTimeline(day) {
     return `<div class="ev ${evCls(ev.i)}${one ? ' one' : ''}" title="${esc(ev.i.title)}" style="top:${ev.s / 60 * H}px;height:${hpx}px;left:${ev.col / ev.n * 100}%;width:${100 / ev.n}%">` +
       (one ? `${esc(ev.i.title)} <span class="tm">${tm}</span>` : `${esc(ev.i.title)}<br>${tm}${ev.i.place ? ' ' + esc(ev.i.place) : ''}`) + `</div>`;
   }).join('');
-  const due = S.items.filter(i => i.kind === 'タスク' && live(i) && i.due_date === day && i.due_time);
+  const due = evTaskItems().filter(i => i.due_date === day && i.due_time);   // スイッチがオフなら出さない。完了したタスクは薄く
   const thins = all.filter(x => x.thin);
   const dueYs = stackY(due.map(i => mins(i.due_time) / 60 * H)), thinYs = stackY(thins.map(x => x.s / 60 * H));
-  const lines = due.map(i => `<div class="dueline" style="top:${mins(i.due_time) / 60 * H}px"></div>`).join('') +
+  const lines = due.map(i => `<div class="dueline ${i.status === 'done' ? 'done' : ''}" style="top:${mins(i.due_time) / 60 * H}px"></div>`).join('') +
     thins.map(x => `<div class="evline ${evCls(x.i)}" style="top:${x.s / 60 * H}px"></div>`).join('');
-  const labs = due.map((i, k) => `<div class="duelab" style="top:${dueYs[k]}px">〆 ${esc(i.title)} ${i.due_time}</div>`).join('') +
+  const labs = due.map((i, k) => `<div class="duelab ${i.status === 'done' ? 'done' : ''}" style="top:${dueYs[k]}px">〆 ${esc(i.title)} ${i.due_time}</div>`).join('') +
     thins.map((x, k) => `<div class="evlab ${evCls(x.i)}" style="top:${thinYs[k]}px">${esc(timeOf(x.i.start_at) + ' ' + x.i.title)}</div>`).join('');
   const now = day === TODAY() ? `<div class="now" style="top:${nowMin() / 60 * H}px"></div>` : '';
   return `<div class="vt-wrap"><div class="vt" style="height:${24 * H}px">${hours}${lines}<div class="lane">${blocks}</div>${labs}${now}</div></div>`;
@@ -395,8 +401,9 @@ function vTimeline(day) {
 /* ---------- 各ページ ---------- */
 function viewEvents() {
   const day = ui.selDay, d = parseD(day), t = TODAY();
-  const untimed = dayEntries(day).filter(i => !itemTime(i));
-  const un = untimed.length ? `<div class="untimed">${untimed.map(i => `<div class="chip ${i.kind === '予定' ? evCls(i) : ''}" title="${esc(i.title)}">${i.kind === 'タスク' ? '〆 ' : ''}${esc(i.title)}${i.place ? ' ' + esc(i.place) : ''}</div>`).join('')}</div>` : '';
+  const untimed = dayEntries(day).filter(i => !itemTime(i) && (i.kind === '予定' || ui.evTasks))   // タスクの札も、スイッチがオフなら出さない
+    .concat(evTaskItems().filter(i => i.status === 'done' && i.due_date === day && !i.due_time));   // 完了したタスクは、薄く
+  const un = untimed.length ? `<div class="untimed">${untimed.map(i => `<div class="chip ${i.kind === '予定' ? evCls(i) : i.status === 'done' ? 'done' : ''}" title="${esc(i.title)}">${i.kind === 'タスク' ? '〆 ' : ''}${esc(i.title)}${i.place ? ' ' + esc(i.place) : ''}</div>`).join('')}</div>` : '';
   return `<div class="daybar"><button class="ibtn sm" data-daynav="-1" aria-label="前の日">${tri(TRI_L)}</button>
     <div class="dt">${d.getMonth() + 1}月${d.getDate()}日<span class="${dayTone(day)}">${WDE[d.getDay()]}</span></div>
     <button class="ibtn sm" data-daynav="1" aria-label="次の日">${tri(TRI_R)}</button></div>
@@ -473,7 +480,7 @@ function drawerHtml() {
   const [y, m] = ui.calMonth.split('-').map(Number), isEv = ui.page === 'events';
   const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7, days = new Date(y, m, 0).getDate(), total = Math.ceil((offset + days) / 7) * 7;
   const marks = {};
-  const src = isEv ? S.items.filter(i => i.kind === '予定' && live(i)).concat(ui.evTasks ? S.items.filter(i => i.kind === 'タスク' && live(i)) : []) : S.items.filter(i => i.kind === 'タスク' && live(i));
+  const src = isEv ? S.items.filter(i => i.kind === '予定' && live(i)).concat(evTaskItems()) : S.items.filter(i => i.kind === 'タスク' && live(i));
   src.forEach(i => { const k = itemDay(i); if (k) (marks[k] = marks[k] || []).push(i); });
   const sel = isEv ? ui.selDay : ui.taskDay, t = TODAY();
   let cells = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((n, k) => `<div class="h ${k === 5 ? 'sat' : k === 6 ? 'sun' : ''}">${n}</div>`).join('');
@@ -481,7 +488,12 @@ function drawerHtml() {
     const dn = k - offset + 1;
     if (dn < 1 || dn > days) { cells += '<div class="cell out"></div>'; continue; }
     const key = `${y}-${pad(m)}-${pad(dn)}`, list = marks[key] || [];
-    const dots = list.slice(0, 3).map(i => `<i class="${i.kind === 'タスク' ? 't' : ''}"></i>`).join('') + (list.length > 3 ? `<b>+${list.length - 3}</b>` : '');
+    /* 丸は、色ごとに1つ（予定は 重要・くり返し・標準 の順で、あるものだけ。そのあとに、タスクがあれば中抜きの丸。タスクが完了だけなら薄く） */
+    const has = f => list.some(f), tk = list.filter(i => i.kind === 'タスク');
+    const dots = [has(i => i.kind === '予定' && i.important) ? '<i class="imp"></i>' : '',
+      has(i => i.kind === '予定' && !i.important && i.series_id) ? '<i class="ser"></i>' : '',
+      has(i => i.kind === '予定' && !i.important && !i.series_id) ? '<i></i>' : '',
+      tk.length ? `<i class="t${tk.every(i => i.status === 'done') ? ' done' : ''}"></i>` : ''].join('');
     cells += `<div class="cell ${key === sel ? 'sel' : ''}" data-day="${key}"><span class="dn ${dayTone(key)} ${key === t ? 'today' : ''}">${dn}</span><div class="mk">${dots}</div></div>`;
   }
   const b = calBounds(), ym = ui.calMonth;
@@ -492,7 +504,7 @@ function drawerHtml() {
       <button class="ibtn sm" data-cal="1" aria-label="次の月" ${nextOff ? 'disabled' : ''}>${tri(TRI_R)}</button>
       <button class="ibtn sm" data-close-cal="1" aria-label="閉じる"><svg class="tri" viewBox="0 0 10 10" width="12" height="12"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button></div></div>
     ${sw}<div class="cal">${cells}</div>
-    <div class="dr-legend">${isEv ? '日を押すと、その日の予定が開きます' : '日を押すと、その日が期限のタスクだけに絞ります'}<br><i></i>${isEv ? '予定' : 'タスク'}${isEv && ui.evTasks ? '<i class="t"></i>タスク（〆）' : ''}</div>`;
+    <div class="dr-legend">${isEv ? '日を押すと、その日の予定が開きます' : '日を押すと、その日が期限のタスクだけに絞ります'}<br>${isEv ? '<i></i>予定<i class="ser"></i>くり返し<i class="imp"></i>重要' : '<i></i>タスク'}${isEv && ui.evTasks ? '<i class="t"></i>タスク（〆）' : ''}</div>`;
 }
 function renderDrawer() {
   const open = ui.cal && calPage() && !!S;
@@ -568,7 +580,7 @@ document.addEventListener('click', e => {
   if (t.closest('[data-evtasks]')) {
     ui.evTasks = !ui.evTasks;
     try { localStorage.setItem('evTasks', ui.evTasks ? '1' : '0'); } catch (e2) { /* 覚えられなくても動く */ }
-    renderDrawer(); return;
+    render(); return;   // 縦タイムラインの〆も、このスイッチに従う（カレンダーだけでなく、後ろの画面も描き直す）
   }
   if ((el = t.closest('[data-day]'))) {
     if (ui.page === 'tasks') ui.taskDay = ui.taskDay === el.dataset.day ? null : el.dataset.day;

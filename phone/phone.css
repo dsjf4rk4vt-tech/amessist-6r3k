@@ -90,6 +90,10 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .mk{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:3px;margin-top:4px;min-height:8px}
 .mk i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .mk i.t{background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)}
+.mk i.t.done{opacity:.4}   /* 完了したタスクだけの日 */
+/* 予定の丸は、色ごとに1つ（くり返し=薄い紫、重要=黄緑。色は ../style.css の .ser・.imp の --evbg。薄い紫は、輪郭を足して見えやすく） */
+.mk i.ser,.mk i.imp,.dr-legend i.ser,.dr-legend i.imp{background:var(--evbg)}
+.mk i.ser,.dr-legend i.ser{box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
 .mk b{font-size:10px;font-weight:600;color:var(--muted);line-height:1}
 .dr-legend{margin-top:10px;font-size:12px;color:var(--muted)}
 .dr-legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin:0 4px 0 8px;vertical-align:baseline}
