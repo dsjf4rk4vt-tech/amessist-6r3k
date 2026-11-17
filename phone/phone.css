@@ -131,6 +131,8 @@ body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-
 .sh-kinds.eq .sh-k:first-child{grid-column:auto}   /* ログの種類・食事の区分: 全部を同じ幅で1段に */
 .sh-kinds.eq .sh-k{height:42px;font-size:13px;white-space:nowrap;padding:0}   /* 「やったこと」が、狭い画面（幅375px）でも1行に収まる大きさ */
 .sh-l>.sh-kinds{margin-top:4px}
+.sh-ck{display:flex;align-items:center;gap:10px;min-height:46px;margin:0 0 10px;font-size:14px;color:var(--ink)}   /* 就寝の「日付をまたいだ」 */
+.sh-ck>input{flex:none;width:22px;height:22px;margin:0}
 .sh-l>input[type=date],.sh-l>input[type=time]{min-width:0;-webkit-appearance:none;appearance:none;text-align:left}
 .sh-k{height:40px;padding:0 4px;border:0;border-radius:var(--round-ui);background:var(--btn);color:var(--ink);font:inherit;font-size:15px;cursor:pointer;transition:background-color var(--dur),transform var(--dur)}
 .sh-k.on{background:var(--accent);color:var(--accent-ink);font-weight:600}

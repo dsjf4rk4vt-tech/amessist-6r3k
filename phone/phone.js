@@ -6,7 +6,7 @@
    入力（段階2）: 「＋」で送信待ちに溜め（端末内。スナップショットとは別の場所）、「送信」で1つのテキストファイルにまとめ、
    共有シート（AirDrop）でMacへ送る。ファイルの形式は、ショートカットの入力ファイルと同じ（PROJECT.md 第5節）。 */
 
-const APP_VER = '段階2 v10';   // v10: 下タブの順を 収支・定期・ToDo・タスク・予定 に。月カレンダーの丸を、予定の色ごとに（重要・くり返し・標準）。「〆 タスクも表示」をオフにすると、縦タイムラインからもタスクを消す。完了したタスクを、縦タイムラインと月カレンダーに薄く残す（データ version 3。Macの api.py の更新と、データの書き出し直しが必要）。v9: ログに「就寝」「起床」を追加（種類は 歩数・起床・就寝・食事・買い物・やったこと の2段並び。共用の style.css に、就寝・起床の色）。v8: 縦タイムラインの線（〆・食事など）を箱の手前に（共用の style.css の変更を反映。コードの変更なし）。v7: 「ログ」ボタンを、文字なし・「＋」と同じ大きさの丸（ノートの絵）に。v6: 「ログ」ボタン（食事・歩数・やったこと・買い物をMacへ送る）。v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
+const APP_VER = '段階2 v11';   // v11: 就寝に「反映先の日付」と「日付をまたいだ」を追加（入力ファイルは date=反映先、next_day: 1）。v10: 下タブの順を 収支・定期・ToDo・タスク・予定 に。月カレンダーの丸を、予定の色ごとに（重要・くり返し・標準）。「〆 タスクも表示」をオフにすると、縦タイムラインからもタスクを消す。完了したタスクを、縦タイムラインと月カレンダーに薄く残す（データ version 3。Macの api.py の更新と、データの書き出し直しが必要）。v9: ログに「就寝」「起床」を追加（種類は 歩数・起床・就寝・食事・買い物・やったこと の2段並び。共用の style.css に、就寝・起床の色）。v8: 縦タイムラインの線（〆・食事など）を箱の手前に（共用の style.css の変更を反映。コードの変更なし）。v7: 「ログ」ボタンを、文字なし・「＋」と同じ大きさの丸（ノートの絵）に。v6: 「ログ」ボタン（食事・歩数・やったこと・買い物をMacへ送る）。v5: 予定の表示（短い予定は1行、過ぎた予定は薄く、くり返しは薄い紫、重要は黄緑、〆の札のずらし）。v4: タスクの進行中・仕上げ中、「×期限切れ」
 const WDJ = '日月火水木金土';
 const WDE = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 /* アイコン（Mac版 app.js の ICONS と同じ線画。load=読み込み） */
@@ -158,6 +158,7 @@ function logText(r) {   // ログ: 項目ごとに1行（行の配列を返す�
   const L = ['id: ' + r.id, 'kind: ログ', 'created_at: ' + r.created_at, 'type: ' + r.type, 'date: ' + r.date];
   if (r.type === '歩数') return L.concat('steps: ' + r.steps);
   if (r.time) L.push('time: ' + r.time);
+  if (r.type === '就寝' && r.next_day) L.push('next_day: 1');   // 就寝: date は反映先の日。1 は、時刻がその翌日の時刻（日付をまたいだ）
   if (TIME_TYPES.includes(r.type)) return L;   // 就寝・起床: text なし（日付と時刻だけ）
   if (r.type === '食事') L.push('category: ' + r.category);
   if (r.type === 'やったこと' && r.minutes) L.push('minutes: ' + r.minutes);
@@ -171,6 +172,7 @@ const filesText = recs => recs.map(recText).join('\n') + '\n';   // 複数件は
 function logDesc(r) {
   if (r.type === '歩数') return `${fmtMD(r.date)}　${Number(r.steps).toLocaleString('ja-JP')}歩`;
   const day = r.date === TODAY() ? '' : fmtMD(r.date) + ' ';
+  if (r.type === '就寝') return `${fmtMD(r.date)}の分　${r.next_day ? '翌 ' : ''}${r.time || '（送った時刻）'}`;   // 反映先の日を、いつも出す
   if (TIME_TYPES.includes(r.type)) return `${day}${r.time || '（送った時刻）'}`;
   return `${day}${r.time || ''}　` + (r.type === '食事' ? `${r.category}　${r.text}` : r.type === 'やったこと' ? r.text + (r.minutes ? `（${r.minutes}分）` : '') : r.text + (r.place ? `（${r.place}）` : ''));
 }
@@ -251,16 +253,21 @@ function logErr(r) {   // 登録できない理由（登録できるなら空の
   }
   return t ? '' : '買ったものを入力してください';
 }
-const LOGD = { type: '食事', date: '', time: '', category: '朝', text: '', place: '', minutes: '', steps: '' };   // 入力中の値（種類を切り替えても、残す）
+const LOGD = { type: '食事', date: '', time: '', category: '朝', text: '', place: '', minutes: '', steps: '', bdate: '', bnd: '' };   // 入力中の値（種類を切り替えても、残す）
 const hhmm = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const mealByHour = () => { const h = new Date().getHours(); return h < 10 ? '朝' : h < 15 ? '昼' : h < 21 ? '夕' : '間食'; };   // いまの時刻から、ありそうな区分（変えられる）
+/* 就寝の入力の初期値。日の切り替え時刻（Macの day_start_hour。写しに入っていればそれ、なければ4時）より前の時刻なら、前日の分・日付をまたいだ=オン。それ以降は、今日の分・オフ */
+function bedDefault() {
+  const h = new Date().getHours(), dsh = S && Number.isFinite(+S.day_start_hour) ? +S.day_start_hour : 4;
+  return h < dsh ? { bdate: ymd(new Date(Date.now() - 864e5)), bnd: '1' } : { bdate: TODAY(), bnd: '' };
+}
 function openLog() {
   let k = ''; try { k = localStorage.getItem('logKind') || ''; } catch (e) { /* 次へ */ }
-  Object.assign(LOGD, { type: LOG_TYPES.includes(k) ? k : '食事', date: TODAY(), time: hhmm(), category: mealByHour(), text: '', place: '', minutes: '', steps: '' });
+  Object.assign(LOGD, { type: LOG_TYPES.includes(k) ? k : '食事', date: TODAY(), time: hhmm(), category: mealByHour(), text: '', place: '', minutes: '', steps: '' }, bedDefault());
   openSheet('log');
 }
 function logSnap() {   // 画面の入力欄の値を、LOGD に写す
-  document.querySelectorAll('#shc [data-ld]').forEach(el => { LOGD[el.dataset.ld] = el.value; });
+  document.querySelectorAll('#shc [data-ld]').forEach(el => { LOGD[el.dataset.ld] = el.type === 'checkbox' ? (el.checked ? '1' : '') : el.value; });
 }
 function logHtml() {
   const ty = LOGD.type, v = k => esc(LOGD[k]);
@@ -273,6 +280,11 @@ function logHtml() {
     body = `<label class="sh-l">歩数<input id="f-lmain" data-focus="1" data-ld="steps" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="8200" value="${v('steps')}"></label>
       <label class="sh-l">日付<input type="date" data-ld="date" value="${v('date')}"></label>`;
     note = '同じ日の歩数を入れ直すと、あとの入力で書き換わります（前の値は、Macに残ります）。';
+  } else if (ty === '就寝') {   // 就寝: 反映先の日付＋時刻＋日付をまたいだ（日付は、ほかの種類とは別に持つ）
+    body = `<div class="sh-two"><label class="sh-l">反映先の日付<input type="date" data-ld="bdate" value="${v('bdate')}"></label>
+      <label class="sh-l">時刻<input type="time" data-ld="time" value="${v('time')}"></label></div>
+      <label class="sh-ck"><input type="checkbox" data-ld="bnd" value="1" ${LOGD.bnd ? 'checked' : ''}>日付をまたいだ（時刻は、反映先の日の翌日）</label>`;
+    note = `就寝は、反映先の日付の分として記録します（1日に1つ。同じ日の就寝を入れ直すと、あとの入力で書き換わり、前の時刻はMacに残ります）。初めの設定は、4時より前なら前日の分・「日付をまたいだ」オンです。時刻は、Macが設定の刻み（初めは10分）にまるめて記録します。空にすると、いまの時刻です。`;
   } else if (TIME_TYPES.includes(ty)) {
     body = when;
     note = `${ty}は1日に1つです。同じ日の${ty}を入れ直すと、あとの入力で書き換わります（前の時刻は、Macに残ります）。時刻は、Macが設定の刻み（初めは10分）にまるめて記録します。空にすると、いまの時刻です。`;
@@ -292,7 +304,8 @@ function logHtml() {
 function logSubmit() {
   logSnap();
   const hint = $('f-hint'), bad = m => { hint.textContent = m; }, L = LOGD, nf = x => String(x == null ? '' : x).normalize('NFKC').replace(/[,\s]/g, '');
-  const rec = { id: newId(), created_at: isoLocal(new Date()), kind: 'ログ', type: L.type, date: L.date };
+  const rec = { id: newId(), created_at: isoLocal(new Date()), kind: 'ログ', type: L.type, date: L.type === '就寝' ? L.bdate : L.date };
+  if (L.type === '就寝' && L.bnd) rec.next_day = 1;
   if (L.type === '歩数') { const n = nf(L.steps).replace(/歩$/, ''); rec.steps = /^\d+$/.test(n) ? +n : n; }
   else {
     if (L.time) rec.time = L.time;
