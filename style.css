@@ -259,6 +259,7 @@ summary{cursor:pointer;font-weight:600}
 .vt .now{left:0;right:0;border-top-width:2px;z-index:3}
 .daylist{margin-top:14px}
 .dayhead{margin-top:0}
+.dayhead .dayjump{margin-left:12px;vertical-align:middle}   /* 縦タイムラインの見出しの「今日」 */
 .daylist .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
 .daylist .row.past .t{color:var(--muted)}   /* 過ぎた予定（取消ではない）。打ち消し線は付けない */
 .daylist .star{font-style:normal;display:inline-block;background:var(--lime);color:#1b1b1b;border-radius:6px;font-size:11px;line-height:1.4;padding:0 4px;margin-right:6px}
@@ -273,6 +274,7 @@ summary{cursor:pointer;font-weight:600}
 .ht .bar{position:absolute;height:32px;background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink));border-radius:10px;font-size:13px;line-height:32px;text-align:center;overflow:hidden;white-space:nowrap;padding:0 6px;cursor:pointer}
 .ht .bar.done{opacity:.5}
 .ht .dl{position:absolute;top:0;bottom:0;border-left:3px solid var(--accent)}
+.ht .dl.done{opacity:.5}   /* 完了したタスクの〆は、消さずに薄く */
 .ht .dl.evl{border-left-color:var(--evbg,var(--accent));cursor:pointer}
 .ht .dl.evl span{background:var(--evbg,var(--accent));color:var(--evfg,var(--accent-ink))}
 .ht .dl.evl.done{opacity:.5}
